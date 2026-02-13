@@ -58,5 +58,35 @@
 <body class="bg-[#fcfaf8]">
     <div id="root"></div>
 <script type="module" src="/index.tsx"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<script>
+const supabaseClient = supabase.createClient(
+  "https://omnuydikeejhiahkufwa.supabase.co",
+  "sb_publishable_iAYfPVW85cV66HVY9V_jwQ_w0TtRycg"
+);
+
+const CLIENT_ID = "15d783c5-ad6c-4ee8-927b-eed0b828ad85";
+
+async function enviarLead(nome, telefone, mensagem) {
+  const { data, error } = await supabaseClient
+    .from("leads")
+    .insert([
+      {
+        client_id: CLIENT_ID,
+        name: nome,
+        phone: telefone,
+        message: mensagem
+      }
+    ]);
+
+  if (error) {
+    console.error(error);
+    alert("Erro ao enviar.");
+  } else {
+    alert("Mensagem enviada com sucesso!");
+  }
+}
+</script>
 </body>
 </html>

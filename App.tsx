@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
+import { supabase } from './services/supabase';
 import Navbar from './components/Navbar';
 import Hero from './components/Hero';
 import CourseCard from './components/CourseCard';
@@ -60,6 +61,11 @@ const App: React.FC = () => {
   const [showCookieConsent, setShowCookieConsent] = useState(false);
 
   const logoUrl = "https://i.imgur.com/l2VarrP.jpeg";
+
+  // 🔌 Teste de conexão Supabase
+  useEffect(() => {
+    console.log('🚀 Supabase conectado:', supabase);
+  }, []);
 
   const filteredCourses = activeCategory === 'Todos' 
     ? courses 

@@ -1,6 +1,7 @@
 
 import React, { useState } from 'react';
 import { ArrowLeft, Phone, Mail, MapPin, MessageCircle, Clock, Send, ChevronDown, ChevronUp, ExternalLink, HelpCircle } from 'lucide-react';
+import { supabase, CLIENT_ID } from '../services/supabase';
 
 interface ContactProps {
   onBack: () => void;
