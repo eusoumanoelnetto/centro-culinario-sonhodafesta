@@ -54,6 +54,21 @@ const App: React.FC = () => {
   // User State Lifting
   const [user, setUser] = useState<{name: string, email: string, avatar?: string} | null>(null);
 
+  // Carregar usuário do localStorage ao inicializar
+  useEffect(() => {
+    const savedUser = localStorage.getItem('user_session');
+    if (savedUser) {
+      try {
+        const userData = JSON.parse(savedUser);
+        setUser(userData);
+        console.log('✅ Sessão restaurada:', userData.name);
+      } catch (error) {
+        console.error('Erro ao restaurar sessão:', error);
+        localStorage.removeItem('user_session');
+      }
+    }
+  }, []);
+
   // Testimonials Carousel State
   const [testimonialIndex, setTestimonialIndex] = useState(0);
   const [isHoveringTestimonials, setIsHoveringTestimonials] = useState(false);
@@ -254,10 +269,16 @@ const App: React.FC = () => {
 
   const handleLogin = (userData: {name: string, email: string, avatar?: string}) => {
     setUser(userData);
+    // Salvar sessão no localStorage
+    localStorage.setItem('user_session', JSON.stringify(userData));
+    console.log('💾 Sessão salva:', userData.name);
   };
 
   const handleLogout = () => {
     setUser(null);
+    // Remover sessão do localStorage
+    localStorage.removeItem('user_session');
+    console.log('🚪 Sessão encerrada');
     handleNavigate('home');
   };
 
