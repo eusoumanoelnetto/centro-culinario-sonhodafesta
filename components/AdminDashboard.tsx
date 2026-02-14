@@ -1846,6 +1846,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
                           </div>
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                          <div>
                             <label className="text-xs font-bold text-gray-500 uppercase ml-1">Status</label>
                             <select value={studentData.status} onChange={e => setStudentData({...studentData, status: e.target.value})} className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-[#9A0000] outline-none bg-white text-gray-900">
                               <option>Ativo</option><option>Pendente</option><option>Cancelado</option>
