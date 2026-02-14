@@ -46,6 +46,7 @@ interface AdminRequest {
   email: string;
   message: string;
   createdAt: string;
+  resolvedAt?: string | null;
   courseTitle?: string;
   requestType?: string;
 }
@@ -135,7 +136,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
     try {
       const { data, error } = await supabase
         .from('form_submissions')
-        .select('id, form_type, payload, created_at')
+        .select('id, form_type, payload, created_at, resolved_at')
         .eq('client_id', CLIENT_ID)
         .in('form_type', ['password_reset_request', 'data_change_request', 'certificate_request'])
         .order('created_at', { ascending: false });
@@ -148,7 +149,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
         const payload = row.payload || {};
         const message =
           row.form_type === 'certificate_request'
-            ? `Curso: ${payload.courseTitle || 'N/A'} | Motivo: ${payload.requestDescription || 'N/A'}`
+            ? `Curso: ${payload.course || payload.courseTitle || 'N/A'} | Motivo: ${payload.reason || payload.requestDescription || 'N/A'}`
             : payload.message || payload.note || 'Sem detalhes';
 
         return {
@@ -157,6 +158,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
           email: payload.email || payload.studentEmail || 'Nao informado',
           message,
           createdAt: row.created_at,
+          resolvedAt: row.resolved_at || null,
           courseTitle: payload.courseTitle,
           requestType: payload.requestType,
         } as AdminRequest;
@@ -193,7 +195,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
   const [isLoadingRequests, setIsLoadingRequests] = useState(false);
   const [requestsError, setRequestsError] = useState<string | null>(null);
   const certRequestsCount = certRequests.length;
-  const adminRequestsCount = adminRequests.length;
+  const pendingAdminRequests = adminRequests.filter(req => !req.resolvedAt);
+  const resolvedAdminRequests = adminRequests.filter(req => req.resolvedAt);
+  const adminRequestsCount = pendingAdminRequests.length;
 
   // Filter States
   const [studentFilter, setStudentFilter] = useState<'Todos' | 'Ativo' | 'Cancelado' | 'Concluído'>('Todos');
@@ -390,10 +394,32 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
     try {
       await updatePassword(student.id, student.cpf);
       setModal({ isOpen: true, type: 'success', message: 'Senha resetada para o CPF com sucesso!' });
-      setAdminRequests(prev => prev.filter(req => req.id !== requestId));
+      await handleResolveAdminRequest(requestId);
     } catch (error) {
       console.error('Erro ao resetar senha', error);
       setModal({ isOpen: true, type: 'error', message: 'Nao foi possivel resetar a senha.' });
+    }
+  };
+
+  const handleResolveAdminRequest = async (requestId: string) => {
+    const resolvedAt = new Date().toISOString();
+    try {
+      const { error } = await supabase
+        .from('form_submissions')
+        .update({ resolved_at: resolvedAt })
+        .eq('id', requestId)
+        .eq('client_id', CLIENT_ID);
+
+      if (error) {
+        throw error;
+      }
+
+      setAdminRequests(prev => prev.map(req =>
+        req.id === requestId ? { ...req, resolvedAt } : req
+      ));
+    } catch (error) {
+      console.error('Erro ao marcar solicitacao como resolvida', error);
+      setModal({ isOpen: true, type: 'error', message: 'Nao foi possivel marcar como resolvido.' });
     }
   };
 
@@ -1643,9 +1669,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
                           <div className="text-sm text-gray-500 flex items-center gap-2">
                             <Loader2 size={16} className="animate-spin" /> Carregando solicitacoes...
                           </div>
-                        ) : adminRequests.length > 0 ? (
+                        ) : pendingAdminRequests.length > 0 ? (
                           <div className="space-y-3">
-                            {adminRequests.map(req => (
+                            {pendingAdminRequests.map(req => (
                               <div key={req.id} className="bg-gray-50 p-4 rounded-xl border border-gray-100 flex flex-col md:flex-row gap-4 md:items-center md:justify-between">
                                 <div>
                                   <div className="flex items-center gap-2 mb-1">
@@ -1671,7 +1697,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
                                     </button>
                                   ) : (
                                     <button
-                                      onClick={() => setAdminRequests(prev => prev.filter(r => r.id !== req.id))}
+                                      onClick={() => handleResolveAdminRequest(req.id)}
                                       className="bg-gray-800 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-gray-700 transition-colors"
                                     >
                                       Marcar como resolvido
@@ -1684,6 +1710,36 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
                         ) : (
                           <div className="text-sm text-gray-500">Nenhuma solicitacao pendente.</div>
                         )}
+
+                        <div className="mt-6 pt-6 border-t border-gray-100">
+                          <div className="flex items-center justify-between mb-3">
+                            <h4 className="text-sm font-bold text-gray-700">Historico de solicitacoes resolvidas</h4>
+                            <span className="text-[10px] text-gray-400">{resolvedAdminRequests.length} registros</span>
+                          </div>
+                          {resolvedAdminRequests.length > 0 ? (
+                            <div className="space-y-2">
+                              {resolvedAdminRequests.map(req => (
+                                <div key={req.id} className="bg-white p-3 rounded-lg border border-gray-100 text-xs text-gray-600 flex flex-col md:flex-row md:items-center md:justify-between gap-2">
+                                  <div>
+                                    <span className="font-bold text-gray-700">{req.email}</span>
+                                    <span className="ml-2 text-[10px] px-2 py-0.5 rounded-full font-bold bg-gray-100 text-gray-600">
+                                      {req.type === 'password_reset_request'
+                                        ? 'Reset de senha'
+                                        : req.type === 'data_change_request'
+                                        ? 'Correcao de dados'
+                                        : 'Certificado'}
+                                    </span>
+                                  </div>
+                                  <div className="text-[10px] text-gray-400">
+                                    Resolvido em: {req.resolvedAt ? new Date(req.resolvedAt).toLocaleString('pt-BR') : 'N/A'}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <div className="text-xs text-gray-400">Nenhum historico ainda.</div>
+                          )}
+                        </div>
                       </div>
                     </div>
                   )}
