@@ -143,6 +143,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
   const [correctionName, setCorrectionName] = useState("");
   const [isNameCorrection, setIsNameCorrection] = useState(false);
 
+  // Delete Confirmation Modal State
+  const [deleteModal, setDeleteModal] = useState<{ isOpen: boolean; type: 'course' | 'student' | 'teacher' | 'blog' | null; id: string | number | null; name: string } | null>(null);
+
   // Form States (Genéricos para reaproveitar ou específicos)
   const [editingId, setEditingId] = useState<string | number | null>(null); // Se null, é criação. Se tem ID, é edição.
 
@@ -473,9 +476,29 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
   };
 
   const handleDelete = async (id: string | number, type: 'course' | 'student' | 'teacher' | 'blog') => {
-    if (!confirm("Tem certeza que deseja excluir este item?")) {
-      return;
+    let itemName = '';
+    
+    if (type === 'student') {
+      const student = studentsList.find(s => s.id === id);
+      itemName = student?.name || 'Aluno';
+    } else if (type === 'course') {
+      const course = coursesList.find(c => c.id === id);
+      itemName = course?.title || 'Curso';
+    } else if (type === 'teacher') {
+      const teacher = teachersList.find(t => t.id === id);
+      itemName = teacher?.name || 'Professor';
+    } else if (type === 'blog') {
+      const blog = blogList.find(b => b.id === id);
+      itemName = blog?.title || 'Post';
     }
+
+    setDeleteModal({ isOpen: true, type, id, name: itemName });
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteModal) return;
+
+    const { type, id } = deleteModal;
 
     try {
       if (type === 'course') {
@@ -492,6 +515,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
       }
 
       showSuccess("Item excluído com sucesso!");
+      setDeleteModal(null);
     } catch (error) {
       console.error('Erro ao excluir registro', error);
       alert('Não foi possível excluir este registro. Tente novamente.');
@@ -2041,6 +2065,48 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
                 ) : (
                   <>Confirmar Reenvio <Send size={18} /></>
                 )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {deleteModal?.isOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-0 overflow-hidden">
+            <button 
+              onClick={() => setDeleteModal(null)}
+              className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 p-2 rounded-full hover:bg-gray-100 transition-colors z-10"
+            >
+              <X size={20} />
+            </button>
+
+            <div className="flex flex-col items-center text-center p-8 bg-red-50">
+              <div className="w-16 h-16 rounded-full bg-red-100 flex items-center justify-center mb-4">
+                <AlertTriangle size={32} className="text-red-600" />
+              </div>
+              <h3 className="text-2xl font-bold text-gray-800 font-serif mb-2">
+                Excluir {deleteModal?.type === 'student' ? 'Aluno' : deleteModal?.type === 'course' ? 'Curso' : deleteModal?.type === 'teacher' ? 'Professor' : 'Post'}?
+              </h3>
+              <p className="text-gray-600 text-sm mb-6">
+                Tem certeza que deseja excluir <strong className="text-gray-800">"{deleteModal?.name}"</strong>? Esta ação não pode ser desfeita.
+              </p>
+            </div>
+
+            <div className="flex gap-3 p-6 border-t border-gray-100">
+              <button
+                onClick={() => setDeleteModal(null)}
+                className="flex-1 px-4 py-3 rounded-xl border border-gray-200 text-gray-700 font-bold hover:bg-gray-50 transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={confirmDelete}
+                className="flex-1 px-4 py-3 rounded-xl bg-red-600 text-white font-bold hover:bg-red-700 transition-colors flex items-center justify-center gap-2"
+              >
+                <Trash2 size={18} />
+                Excluir
               </button>
             </div>
           </div>

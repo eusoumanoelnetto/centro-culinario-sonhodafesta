@@ -1,5 +1,6 @@
 import dotenv from 'dotenv'
 import pg from 'pg'
+import { CLIENT_ID } from '../services/supabase.ts'
 
 dotenv.config({ path: '.env.local', override: true })
 dotenv.config({ override: true })
@@ -65,11 +66,11 @@ create policy "Allow public update" on public.students
   for update
   using (true);
 
--- Policy: Only service_role can delete
-drop policy if exists "Allow service_role delete" on public.students;
-create policy "Allow service_role delete" on public.students
+-- Policy: Anyone can delete (for admin panel)
+drop policy if exists "Allow public delete" on public.students;
+create policy "Allow public delete" on public.students
   for delete
-  using (auth.role() = 'service_role');
+  using (client_id = '${CLIENT_ID}');
 `
 
 async function setupStudents() {
