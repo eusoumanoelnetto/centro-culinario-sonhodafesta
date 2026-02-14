@@ -133,12 +133,7 @@ export async function deleteStudent(id: string): Promise<void> {
 }
 
 export async function authenticateStudent(email: string, password: string): Promise<Student | null> {
-  console.log('🔍 authenticateStudent chamado:', {
-    email: email.trim().toLowerCase(),
-    passwordLength: password.trim().length,
-    passwordValue: password.trim(),
-    clientId: CLIENT_ID
-  });
+  console.log('🔍 Autenticando aluno:', email.trim().toLowerCase());
 
   const { data, error } = await supabase
     .from(STUDENTS_TABLE)
@@ -148,50 +143,32 @@ export async function authenticateStudent(email: string, password: string): Prom
     .single()
 
   if (error) {
-    console.log('❌ Erro ao buscar aluno:', error);
+    console.log('❌ Aluno não encontrado');
     return null
   }
 
   if (!data) {
-    console.log('⚠️ Aluno não encontrado com este e-mail');
     return null
   }
 
   const student = mapRowToStudent(data as StudentRow)
 
-  console.log('👤 Aluno encontrado:', {
-    id: student.id,
-    name: student.name,
-    email: student.email,
-    cpf: student.cpf,
-    password: student.password,
-    firstAccess: student.firstAccess
-  });
+  console.log('✅ Aluno encontrado:', student.name);
+  console.log('   Senha armazenada: ' + (student.password ? '***' : 'N/A'));
+  console.log('   CPF armazenado: ' + (student.cpf ? '***' : 'N/A'));
 
-  // Se for primeiro acesso, senha é o CPF
-  if (student.firstAccess && student.cpf) {
-    console.log('🔑 Primeiro acesso - comparando:');
-    console.log('   CPF armazenado:', student.cpf);
-    console.log('   Digite:', password.trim());
-    console.log('   Iguais?', password.trim() === student.cpf.trim());
-    
-    const cpfMatch = password.trim() === student.cpf.trim();
-    if (cpfMatch) {
-      console.log('✅ CPF correto - autenticação bem-sucedida');
-      return student
-    }
-    console.log('❌ CPF incorreto');
+  // Verificar:
+  // 1. Se foi criado via painel admin: usa CPF como senha padrão
+  // 2. Se foi auto-registro: usa a senha que ele criou
+  const storedPassword = student.password || student.cpf; // CPF é a senha padrão para admin
+
+  if (!storedPassword) {
+    console.log('❌ Nenhuma senha cadastrada');
     return null
   }
 
-  // Caso contrário, verifica senha normal
-  console.log('🔑 Verificando senha normal');
-  console.log('   Senha armazenada:', student.password);
-  console.log('   Digitada:', password.trim());
-  console.log('   Iguais?', password.trim() === student.password?.trim());
-  
-  if (student.password && password.trim() === student.password.trim()) {
-    console.log('✅ Senha correta');
+  if (password.trim() === storedPassword.trim()) {
+    console.log('✅ Senha correta - autenticação bem-sucedida');
     return student
   }
 
@@ -203,8 +180,7 @@ export async function updatePassword(id: string, newPassword: string): Promise<v
   const { error } = await supabase
     .from(STUDENTS_TABLE)
     .update({ 
-      password: newPassword.trim(),
-      first_access: false
+      password: newPassword.trim()
     })
     .eq('id', id)
     .eq('client_id', CLIENT_ID)

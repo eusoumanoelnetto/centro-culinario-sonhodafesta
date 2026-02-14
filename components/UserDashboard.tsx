@@ -70,20 +70,10 @@ const UserDashboard: React.FC<UserDashboardProps> = ({
   const [showIdCard, setShowIdCard] = useState(false);
   
   // First Access Password Change Modal
-  const [showFirstAccessModal, setShowFirstAccessModal] = useState(false);
   const [studentId, setStudentId] = useState<string | null>(null);
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [isChangingPassword, setIsChangingPassword] = useState(false);
-
-  // Monitorar mudanças no modal de primeiro acesso
-  useEffect(() => {
-    console.log('📊 Estado do modal alterado:', {
-      showFirstAccessModal,
-      studentId,
-      shouldShowModal: showFirstAccessModal && !!studentId
-    });
-  }, [showFirstAccessModal, studentId]);
   
   // Rating Modal States
   const [showRatingModal, setShowRatingModal] = useState(false);
@@ -219,23 +209,18 @@ const UserDashboard: React.FC<UserDashboardProps> = ({
         console.log('🔐 Tentando autenticar:', {
           email: email.trim(),
           passwordLength: password.trim().length,
-          passwordPreview: password.trim().substring(0, 3) + '...'
         });
 
         const student = await authenticateStudent(email.trim(), password.trim());
 
-        console.log('🔐 Resultado da autenticação:', student ? 'Sucesso' : 'Falha - credenciais incorretas');
+        console.log('🔐 Resultado da autenticação:', student ? 'Sucesso' : 'Falha');
 
         if (!student) {
           setLoginError('E-mail ou senha incorretos.');
           return;
         }
 
-        console.log('✅ Aluno autenticado:', {
-          id: student.id,
-          name: student.name,
-          firstAccess: student.firstAccess
-        });
+        console.log('✅ Aluno autenticado:', student.name);
 
         await recordFormSubmission('user_login', {
           mode: 'login',
@@ -243,16 +228,7 @@ const UserDashboard: React.FC<UserDashboardProps> = ({
           name: student.name,
         });
 
-        // Se for primeiro acesso (senha = CPF), pedir para trocar
-        if (student.firstAccess) {
-          console.log('🔑 Primeiro acesso detectado - solicitando troca de senha');
-          setStudentId(student.id);
-          setShowFirstAccessModal(true);
-          return;
-        }
-
-        // Login normal
-        console.log('✅ Login normal - redirecionando para dashboard');
+        // Login direto - sem modal de primeiro acesso
         setStudentId(student.id);
         
         onLogin({
@@ -285,14 +261,11 @@ const UserDashboard: React.FC<UserDashboardProps> = ({
 
     try {
       await updatePassword(studentId, newPassword);
-      setShowFirstAccessModal(false);
+      alert('✅ Senha alterada com sucesso!');
       
-      // Logar automaticamente após trocar senha
-      onLogin({
-        name: name || 'Aluno',
-        email: email,
-        avatar: BASE_MOCK_DATA.avatar,
-      });
+      // Limpar os campos
+      setNewPassword('');
+      setConfirmPassword('');
     } catch (error) {
       console.error('Erro ao trocar senha', error);
       alert('Não foi possível trocar sua senha. Tente novamente.');
@@ -466,68 +439,8 @@ const UserDashboard: React.FC<UserDashboardProps> = ({
     );
   }
 
-  // FIRST ACCESS PASSWORD CHANGE MODAL
-  if (showFirstAccessModal && studentId) {
-    return (
-      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-        <div className="bg-white rounded-2xl p-8 max-w-md w-full shadow-2xl animate-in zoom-in-95 duration-200">
-          <div className="text-center mb-6">
-            <div className="w-16 h-16 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <Lock size={32} className="text-yellow-600" />
-            </div>
-            <h2 className="text-2xl font-bold text-gray-800 mb-2">Primeiro Acesso</h2>
-            <p className="text-gray-600 text-sm">
-              Por segurança, crie uma nova senha para sua conta.
-            </p>
-          </div>
-
-          <div className="space-y-4">
-            <div>
-              <label className="text-xs font-bold text-gray-500 uppercase ml-1 block mb-2">Nova Senha</label>
-              <input
-                type="password"
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-                placeholder="Digite sua nova senha"
-                className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-[#9A0000] outline-none"
-                minLength={4}
-                required
-              />
-            </div>
-            <div>
-              <label className="text-xs font-bold text-gray-500 uppercase ml-1 block mb-2">Confirmar Senha</label>
-              <input
-                type="password"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                placeholder="Digite novamente"
-                className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-[#9A0000] outline-none"
-                minLength={4}
-                required
-              />
-            </div>
-            <button
-              onClick={handleChangePassword}
-              disabled={isChangingPassword}
-              className="w-full bg-[#9A0000] text-white font-bold py-4 rounded-xl hover:bg-[#7a0000] transition-all shadow-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-            >
-              {isChangingPassword ? (
-                <>
-                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  Salvando...
-                </>
-              ) : (
-                <>
-                  <CheckCircle2 size={20} />
-                  Confirmar Nova Senha
-                </>
-              )}
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  // FIRST ACCESS PASSWORD CHANGE MODAL - Removida conforme solicitação
+  // Usuário agora loga direto com CPF e pode trocar senha nas configurações
 
   // LOGGED IN DASHBOARD
   return (
