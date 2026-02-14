@@ -76,6 +76,26 @@ function buildInsertPayload(input: StudentInput) {
   }
 }
 
+// Update parcial - só atualiza campos que foram enviados
+function buildUpdatePayload(input: StudentInput) {
+  const payload: any = {}
+  
+  if (input.name !== undefined) payload.name = input.name.trim()
+  if (input.email !== undefined) payload.email = input.email.trim().toLowerCase()
+  if (input.cpf !== undefined) payload.cpf = input.cpf ? input.cpf.trim() : null
+  if (input.whatsapp !== undefined) payload.whatsapp = input.whatsapp ? input.whatsapp.trim() : null
+  if (input.password !== undefined) payload.password = input.password ? input.password.trim() : null
+  if (input.firstAccess !== undefined) payload.first_access = input.firstAccess
+  if (input.status !== undefined) payload.status = input.status
+  if (input.course !== undefined) payload.course = input.course || null
+  if (input.source !== undefined) payload.source = input.source
+  if (input.leadTag !== undefined) payload.lead_tag = input.leadTag || null
+  if (input.lastContact !== undefined) payload.last_contact_note = input.lastContact || null
+  if (input.avatarUrl !== undefined) payload.avatar_url = input.avatarUrl || null
+  
+  return payload
+}
+
 export async function listStudents(): Promise<Student[]> {
   const { data, error } = await supabase
     .from(STUDENTS_TABLE)
@@ -107,7 +127,7 @@ export async function createStudent(input: StudentInput): Promise<Student> {
 }
 
 export async function updateStudent(id: string, input: StudentInput): Promise<Student> {
-  const payload = buildInsertPayload(input)
+  const payload = buildUpdatePayload(input)  // ✅ Update parcial - não sobrescreve campos não enviados
 
   const { data, error } = await supabase
     .from(STUDENTS_TABLE)
