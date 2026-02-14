@@ -9,6 +9,7 @@
     "preview": "vite preview",
     "setup:client": "ts-node --esm scripts/setupClient.ts",
     "setup:students": "ts-node --esm scripts/setupStudents.ts",
+    "setup:forms": "ts-node --esm scripts/setupFormSubmissions.ts",
     "sync:courses": "ts-node --esm syncCourses.ts",
     "list:courses": "ts-node --esm seed.ts",
     "sync:clients": "ts-node --esm syncClients.ts",
