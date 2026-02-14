@@ -13,6 +13,7 @@ import { Course, BlogPost, Student } from '../types';
 import { COURSES, BLOG_POSTS } from '../constants';
 import { recordFormSubmission } from '../services/formSubmissions';
 import { listStudents, createStudent, updateStudent, deleteStudent } from '../services/students';
+import Modal from './Modal';
 
 interface AdminDashboardProps {
   onBack: () => void;
@@ -146,6 +147,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
   // Delete Confirmation Modal State
   const [deleteModal, setDeleteModal] = useState<{ isOpen: boolean; type: 'course' | 'student' | 'teacher' | 'blog' | null; id: string | number | null; name: string } | null>(null);
 
+  // General Modal State
+  const [modal, setModal] = useState<{ isOpen: boolean; type: 'success' | 'error' | 'warning' | 'confirm'; title?: string; message: string; onConfirm?: () => void } | null>(null);
+
   // Form States (Genéricos para reaproveitar ou específicos)
   const [editingId, setEditingId] = useState<string | number | null>(null); // Se null, é criação. Se tem ID, é edição.
 
@@ -199,7 +203,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
 
   const handleWhatsappClick = (student: Student) => {
     if (!student.whatsapp) {
-      alert('Este aluno não possui número de WhatsApp cadastrado.');
+      setModal({ isOpen: true, type: 'warning', message: 'Este aluno não possui número de WhatsApp cadastrado.' });
       return;
     }
     const message = `Olá ${student.name.split(' ')[0]}! Tudo bem?`;
@@ -245,11 +249,11 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
 
   const handleBulkSendCert = () => {
     if (!certificateFile) {
-      alert("Por favor, faça o upload do arquivo do certificado antes de enviar.");
+      setModal({ isOpen: true, type: 'warning', message: 'Por favor, faça o upload do arquivo do certificado antes de enviar.' });
       return;
     }
     if (selectedStudentsForCert.length === 0) {
-      alert("Selecione ao menos um aluno.");
+      setModal({ isOpen: true, type: 'warning', message: 'Selecione ao menos um aluno.' });
       return;
     }
     setIsSendingCerts(true);
@@ -264,7 +268,11 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
   };
 
   const handleResendSingleCert = (log: CertificateLog) => {
-    if(confirm(`Deseja reenviar o certificado para ${log.studentName}? Isso gerará um registro de 2ª via.`)) {
+    setModal({
+      isOpen: true,
+      type: 'confirm',
+      message: `Deseja reenviar o certificado para ${log.studentName}? Isso gerará um registro de 2ª via.`,
+      onConfirm: () => {
         const newLog: CertificateLog = {
             ...log,
             id: `log-${Date.now()}`,
@@ -274,7 +282,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
         };
         setCertHistory(prev => [newLog, ...prev]);
         showSuccess(`2ª via enviada para ${log.studentName}`);
-    }
+      }
+    });
   };
 
   const handleOpenResolve = (request: CertRequest) => {
@@ -518,7 +527,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
       setDeleteModal(null);
     } catch (error) {
       console.error('Erro ao excluir registro', error);
-      alert('Não foi possível excluir este registro. Tente novamente.');
+      setModal({ isOpen: true, type: 'error', message: 'Não foi possível excluir este registro. Tente novamente.' });
     }
   };
 
@@ -562,7 +571,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
       };
 
       if (!studentPayload.name || !studentPayload.email) {
-        alert('Informe nome e e-mail do aluno.');
+        setModal({ isOpen: true, type: 'warning', message: 'Informe nome e e-mail do aluno.' });
         return;
       }
 
@@ -586,7 +595,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
         shouldShowSuccess = true;
       } catch (error) {
         console.error('Erro ao salvar aluno', error);
-        alert('Não foi possível salvar o aluno. Tente novamente.');
+        setModal({ isOpen: true, type: 'error', message: 'Não foi possível salvar o aluno. Tente novamente.' });
         return;
       }
     } else if (activeTab === 'teachers') {
@@ -614,7 +623,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
       }
     } catch (error) {
       console.error('Erro ao registrar alteração administrativa', error);
-      alert('Não foi possível registrar essa alteração no Supabase. Revise e tente novamente.');
+      setModal({ isOpen: true, type: 'error', message: 'Não foi possível registrar essa alteração no Supabase. Revise e tente novamente.' });
     }
   };
 
@@ -2111,6 +2120,18 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
             </div>
           </div>
         </div>
+      )}
+
+      {/* General Modal */}
+      {modal && (
+        <Modal
+          isOpen={modal.isOpen}
+          onClose={() => setModal(null)}
+          type={modal.type}
+          title={modal.title}
+          message={modal.message}
+          onConfirm={modal.onConfirm}
+        />
       )}
 
     </div>

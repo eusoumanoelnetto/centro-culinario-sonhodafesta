@@ -13,6 +13,7 @@ import Blog from './components/Blog';
 import TeacherApplication from './components/TeacherApplication';
 import Contact from './components/Contact';
 import UserDashboard from './components/UserDashboard';
+import Modal from './components/Modal';
 import { Course } from './types';
 import { CATEGORIES, COURSES, TESTIMONIALS } from './constants';
 import { 
@@ -25,6 +26,7 @@ const App: React.FC = () => {
   const [activeCategory, setActiveCategory] = useState('Todos');
   const [currentView, setCurrentView] = useState<'home' | 'details' | 'presencial' | 'catalog' | 'privacy' | 'cookies' | 'blog' | 'teacher-application' | 'contact' | 'profile'>('home');
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
+  const [modal, setModal] = useState<{ isOpen: boolean; type: 'success' | 'error' | 'warning' | 'confirm'; title?: string; message: string; onConfirm?: () => void } | null>(null);
   const logoUrl = "https://i.imgur.com/l2VarrP.jpeg";
 
   const filteredCourses = activeCategory === 'Todos' 
@@ -87,7 +89,7 @@ const App: React.FC = () => {
 
   const handleLeadSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    alert("Obrigado! Você agora faz parte do nosso Canal de Ofertas. Fique de olho no seu WhatsApp!");
+    setModal({ isOpen: true, type: 'success', message: 'Obrigado! Você agora faz parte do nosso Canal de Ofertas. Fique de olho no seu WhatsApp!' });
   };
 
   const renderContent = () => {
@@ -475,6 +477,18 @@ const App: React.FC = () => {
       </footer>
 
       <AIAssistant />
+
+      {/* Global Modal */}
+      {modal && (
+        <Modal
+          isOpen={modal.isOpen}
+          onClose={() => setModal(null)}
+          type={modal.type}
+          title={modal.title}
+          message={modal.message}
+          onConfirm={modal.onConfirm}
+        />
+      )}
     </div>
   );
 };

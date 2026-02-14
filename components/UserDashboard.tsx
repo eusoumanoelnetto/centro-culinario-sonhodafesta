@@ -8,6 +8,7 @@ import {
 import { Course } from '../types';
 import { COURSES } from '../constants';
 import CourseCard from './CourseCard';
+import Modal from './Modal';
 import { recordFormSubmission } from '../services/formSubmissions';
 import { createStudent, authenticateStudent, updatePassword } from '../services/students';
 
@@ -96,6 +97,9 @@ const UserDashboard: React.FC<UserDashboardProps> = ({
   // Save Settings Modal States
   const [settingsModal, setSettingsModal] = useState<{ isOpen: boolean; type: 'success' | 'error'; message: string } | null>(null);
   
+  // General Modal State
+  const [modal, setModal] = useState<{ isOpen: boolean; type: 'success' | 'error' | 'warning' | 'confirm'; title?: string; message: string; onConfirm?: () => void } | null>(null);
+  
   // Login Form States
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -137,7 +141,7 @@ const UserDashboard: React.FC<UserDashboardProps> = ({
         reason: finalReason,
       });
 
-      alert(`Solicitação enviada com sucesso!\n\nMotivo: ${finalReason}\n\nNossa equipe analisará seu pedido em até 48h.`);
+      setModal({ isOpen: true, type: 'success', message: `Solicitação enviada com sucesso!\n\nMotivo: ${finalReason}\n\nNossa equipe analisará seu pedido em até 48h.` });
       setShowCertRequestModal(false);
     } catch (error) {
       console.error('Erro ao registrar solicitação de certificado', error);
@@ -255,12 +259,12 @@ const UserDashboard: React.FC<UserDashboardProps> = ({
     if (!studentId) return;
 
     if (!newPassword || newPassword.length < 4) {
-      alert('A nova senha deve ter pelo menos 4 caracteres.');
+      setModal({ isOpen: true, type: 'error', message: 'A nova senha deve ter pelo menos 4 caracteres.' });
       return;
     }
 
     if (newPassword !== confirmPassword) {
-      alert('As senhas não coincidem.');
+      setModal({ isOpen: true, type: 'error', message: 'As senhas não coincidem.' });
       return;
     }
 
@@ -268,14 +272,14 @@ const UserDashboard: React.FC<UserDashboardProps> = ({
 
     try {
       await updatePassword(studentId, newPassword);
-      alert('✅ Senha alterada com sucesso!');
+      setModal({ isOpen: true, type: 'success', message: '✅ Senha alterada com sucesso!' });
       
       // Limpar os campos
       setNewPassword('');
       setConfirmPassword('');
     } catch (error) {
       console.error('Erro ao trocar senha', error);
-      alert('Não foi possível trocar sua senha. Tente novamente.');
+      setModal({ isOpen: true, type: 'error', message: 'Não foi possível trocar sua senha. Tente novamente.' });
     } finally {
       setIsChangingPassword(false);
     }
@@ -293,7 +297,7 @@ const UserDashboard: React.FC<UserDashboardProps> = ({
       onRate(courseToRate.id, currentRating);
       setShowRatingModal(false);
       setCourseToRate(null);
-      alert("Avaliação enviada com sucesso! Obrigado.");
+      setModal({ isOpen: true, type: 'success', message: 'Avaliação enviada com sucesso! Obrigado.' });
     }
   };
 
@@ -892,7 +896,7 @@ const UserDashboard: React.FC<UserDashboardProps> = ({
                      <button
                        onClick={() => {
                          if (!studentId) {
-                           alert('Não foi possível identificar o aluno. Faça login novamente.');
+                           setModal({ isOpen: true, type: 'error', message: 'Não foi possível identificar o aluno. Faça login novamente.' });
                            return;
                          }
                          handleChangePassword();
@@ -1184,6 +1188,18 @@ const UserDashboard: React.FC<UserDashboardProps> = ({
             </div>
           </div>
         </div>
+      )}
+
+      {/* General Modal */}
+      {modal && (
+        <Modal
+          isOpen={modal.isOpen}
+          onClose={() => setModal(null)}
+          type={modal.type}
+          title={modal.title}
+          message={modal.message}
+          onConfirm={modal.onConfirm}
+        />
       )}
 
     </div>

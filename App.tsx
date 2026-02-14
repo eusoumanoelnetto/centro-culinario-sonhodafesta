@@ -19,6 +19,7 @@ import CheckoutPage from './components/CheckoutPage';
 import SeatSelector from './components/SeatSelector';
 import AdminDashboard from './components/AdminDashboard';
 import Units from './components/Units';
+import Modal from './components/Modal';
 import { Course, BlogPost } from './types';
 import { CATEGORIES, COURSES, TESTIMONIALS, BLOG_POSTS } from './constants';
 import { 
@@ -62,6 +63,9 @@ const App: React.FC = () => {
   const [showCookieConsent, setShowCookieConsent] = useState(false);
   const [leadStatus, setLeadStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [leadFeedback, setLeadFeedback] = useState('');
+
+  // Modal State
+  const [modal, setModal] = useState<{ isOpen: boolean; type: 'success' | 'error' | 'warning' | 'confirm'; title?: string; message: string; onConfirm?: () => void } | null>(null);
 
   const logoUrl = "https://i.imgur.com/l2VarrP.jpeg";
 
@@ -131,7 +135,7 @@ const App: React.FC = () => {
 
   const handleToggleFavorite = (course: Course) => {
     if (!user) {
-      alert("Por favor, faça login ou cadastre-se para favoritar cursos.");
+      setModal({ isOpen: true, type: 'warning', message: 'Por favor, faça login ou cadastre-se para favoritar cursos.' });
       handleNavigate('profile');
       return;
     }
@@ -751,6 +755,18 @@ const App: React.FC = () => {
         </div>
       </footer>
       <AIAssistant />
+
+      {/* Global Modal */}
+      {modal && (
+        <Modal
+          isOpen={modal.isOpen}
+          onClose={() => setModal(null)}
+          type={modal.type}
+          title={modal.title}
+          message={modal.message}
+          onConfirm={modal.onConfirm}
+        />
+      )}
     </div>
   );
 };

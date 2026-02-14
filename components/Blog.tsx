@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { ArrowLeft, BookOpen, Search, Clock, User, Calendar, Tag, ChevronRight, Share2, Twitter, MessageCircle, Copy } from 'lucide-react';
 import { BLOG_POSTS } from '../constants';
 import { BlogPost } from '../types';
+import Modal from './Modal';
 
 interface BlogProps {
   onBack: () => void;
@@ -15,6 +16,7 @@ const Blog: React.FC<BlogProps> = ({ onBack, posts = BLOG_POSTS }) => {
   const [activeCategory, setActiveCategory] = useState('Todos');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedPost, setSelectedPost] = useState<BlogPost | null>(null);
+  const [modal, setModal] = useState<{ isOpen: boolean; type: 'success' | 'error' | 'warning' | 'confirm'; message: string } | null>(null);
 
   const filteredPosts = posts.filter(post => {
     const matchesCategory = activeCategory === 'Todos' || post.category === activeCategory;
@@ -39,7 +41,7 @@ const Blog: React.FC<BlogProps> = ({ onBack, posts = BLOG_POSTS }) => {
         break;
       case 'copy':
         navigator.clipboard.writeText(`${text} ${url}`);
-        alert('Link copiado para a área de transferência!');
+        setModal({ isOpen: true, type: 'success', message: 'Link copiado para a área de transferência!' });
         break;
     }
   };
@@ -288,6 +290,16 @@ const Blog: React.FC<BlogProps> = ({ onBack, posts = BLOG_POSTS }) => {
           </div>
         )}
       </div>
+
+      {/* Modal */}
+      {modal && (
+        <Modal
+          isOpen={modal.isOpen}
+          onClose={() => setModal(null)}
+          type={modal.type}
+          message={modal.message}
+        />
+      )}
     </div>
   );
 };
