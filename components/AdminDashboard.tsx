@@ -86,7 +86,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
   const [isCheckingAuth, setIsCheckingAuth] = useState(false);
 
   // Dashboard Navigation State
-  const [activeTab, setActiveTab] = useState<'metrics' | 'courses' | 'students' | 'teachers' | 'blog' | 'certificates'>('metrics');
+  const [activeTab, setActiveTab] = useState<'metrics' | 'courses' | 'students' | 'teachers' | 'blog' | 'certificates' | 'requests'>('metrics');
   const [viewMode, setViewMode] = useState<'list' | 'form'>('list'); // 'list' para tabela, 'form' para edição/criação
   const [isSuccess, setIsSuccess] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
@@ -192,7 +192,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
   const [adminRequests, setAdminRequests] = useState<AdminRequest[]>([]);
   const [isLoadingRequests, setIsLoadingRequests] = useState(false);
   const [requestsError, setRequestsError] = useState<string | null>(null);
-  const pendingRequestsCount = certRequests.length + adminRequests.length;
+  const certRequestsCount = certRequests.length;
+  const adminRequestsCount = adminRequests.length;
 
   // Filter States
   const [studentFilter, setStudentFilter] = useState<'Todos' | 'Ativo' | 'Cancelado' | 'Concluído'>('Todos');
@@ -363,7 +364,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
   };
 
   const handleOpenRequests = () => {
-    setActiveTab('certificates');
+    setActiveTab('requests');
     setViewMode('list');
     setTimeout(() => {
       const section = document.getElementById('admin-requests');
@@ -1547,18 +1548,18 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
                 >
                   <Award size={20} />
                   <span className="flex-1">Certificação</span>
-                  {pendingRequestsCount > 0 && (
-                    <span className="bg-red-500 text-white text-[10px] px-1.5 py-0.5 rounded-full animate-pulse">{pendingRequestsCount}</span>
+                  {certRequestsCount > 0 && (
+                    <span className="bg-red-500 text-white text-[10px] px-1.5 py-0.5 rounded-full animate-pulse">{certRequestsCount}</span>
                   )}
                 </button>
                 <button
                   onClick={handleOpenRequests}
-                  className="w-full flex items-center gap-3 pl-12 pr-4 py-3 rounded-xl text-xs font-bold transition-all text-gray-600 hover:bg-gray-50"
+                  className={`w-full flex items-center gap-3 p-4 rounded-xl text-sm font-bold transition-all ${activeTab === 'requests' ? 'bg-[#9A0000] text-white shadow-md' : 'text-gray-600 hover:bg-gray-50'}`}
                 >
-                  <BellRing size={16} />
+                  <BellRing size={20} />
                   <span className="flex-1">Solicitações</span>
-                  {pendingRequestsCount > 0 && (
-                    <span className="bg-red-500 text-white text-[10px] px-1.5 py-0.5 rounded-full animate-pulse">{pendingRequestsCount}</span>
+                  {adminRequestsCount > 0 && (
+                    <span className="bg-red-500 text-white text-[10px] px-1.5 py-0.5 rounded-full animate-pulse">{adminRequestsCount}</span>
                   )}
                 </button>
               </div>
@@ -1586,6 +1587,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
                       {activeTab === 'teachers' && 'Gerenciar Professores'}
                       {activeTab === 'blog' && 'Gerenciar Blog'}
                       {activeTab === 'certificates' && 'Gerenciar Certificados'}
+                      {activeTab === 'requests' && 'Solicitações'}
                     </h2>
                     
                     {activeTab !== 'certificates' && activeTab !== 'students' && activeTab !== 'metrics' && (
@@ -1616,12 +1618,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
                   {activeTab === 'students' && renderStudentsTable()}
                   {activeTab === 'teachers' && renderTeachersTable()}
                   {activeTab === 'blog' && renderBlogTable()}
-                  
-                  {/* CERTIFICATES SECTION */}
-                  {activeTab === 'certificates' && (
+                  {activeTab === 'requests' && (
                     <div className="animate-in fade-in duration-300">
-
-                      {/* SOLICITACOES */}
                       <div id="admin-requests" className="bg-white border border-gray-200 rounded-2xl p-6 mb-8 shadow-sm">
                         <div className="flex items-center justify-between mb-4">
                           <h3 className="font-bold text-gray-800 flex items-center gap-2">
@@ -1687,7 +1685,12 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
                           <div className="text-sm text-gray-500">Nenhuma solicitacao pendente.</div>
                         )}
                       </div>
-                      
+                    </div>
+                  )}
+                  
+                  {/* CERTIFICATES SECTION */}
+                  {activeTab === 'certificates' && (
+                    <div className="animate-in fade-in duration-300">
                       {/* PENDING REQUESTS NOTIFICATION PANEL */}
                       {certRequests.length > 0 && (
                         <div className="bg-yellow-50 border border-yellow-200 rounded-2xl p-6 mb-8 shadow-sm">
