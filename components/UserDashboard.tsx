@@ -207,12 +207,26 @@ const UserDashboard: React.FC<UserDashboardProps> = ({
       }
 
       try {
+        console.log('🔐 Tentando autenticar:', {
+          email: email.trim(),
+          passwordLength: password.trim().length,
+          passwordPreview: password.trim().substring(0, 3) + '...'
+        });
+
         const student = await authenticateStudent(email.trim(), password.trim());
+
+        console.log('🔐 Resultado da autenticação:', student ? 'Sucesso' : 'Falha - credenciais incorretas');
 
         if (!student) {
           setLoginError('E-mail ou senha incorretos.');
           return;
         }
+
+        console.log('✅ Aluno autenticado:', {
+          id: student.id,
+          name: student.name,
+          firstAccess: student.firstAccess
+        });
 
         await recordFormSubmission('user_login', {
           mode: 'login',
@@ -222,12 +236,14 @@ const UserDashboard: React.FC<UserDashboardProps> = ({
 
         // Se for primeiro acesso (senha = CPF), pedir para trocar
         if (student.firstAccess) {
+          console.log('🔑 Primeiro acesso detectado - solicitando troca de senha');
           setStudentId(student.id);
           setShowFirstAccessModal(true);
           return;
         }
 
         // Login normal
+        console.log('✅ Login normal - redirecionando para dashboard');
         setStudentId(student.id);
         
         onLogin({
@@ -236,8 +252,9 @@ const UserDashboard: React.FC<UserDashboardProps> = ({
           avatar: BASE_MOCK_DATA.avatar,
         });
       } catch (error) {
-        console.error('Erro ao autenticar aluno', error);
-        setLoginError('Erro ao fazer login. Tente novamente.');
+        console.error('❌ Erro ao autenticar aluno:', error);
+        const authErr = error as { message?: string };
+        setLoginError(authErr?.message || 'Erro ao fazer login. Tente novamente.');
       }
     }
   };

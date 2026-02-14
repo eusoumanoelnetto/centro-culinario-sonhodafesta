@@ -19,7 +19,11 @@ if (!dbUrl) {
 const sql = `
 drop schema if exists alunos cascade;
 
-create table if not exists public.students (
+-- Remover tabela students antiga se existir
+drop table if exists public.students cascade;
+
+-- Criar tabela students com todas as colunas
+create table public.students (
   id uuid primary key default gen_random_uuid(),
   client_id uuid not null references public.clients(id) on delete cascade,
   name text not null,

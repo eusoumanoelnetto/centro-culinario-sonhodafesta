@@ -133,6 +133,12 @@ export async function deleteStudent(id: string): Promise<void> {
 }
 
 export async function authenticateStudent(email: string, password: string): Promise<Student | null> {
+  console.log('🔍 authenticateStudent chamado:', {
+    email: email.trim().toLowerCase(),
+    passwordLength: password.trim().length,
+    clientId: CLIENT_ID
+  });
+
   const { data, error } = await supabase
     .from(STUDENTS_TABLE)
     .select('*')
@@ -140,25 +146,48 @@ export async function authenticateStudent(email: string, password: string): Prom
     .eq('email', email.trim().toLowerCase())
     .single()
 
-  if (error || !data) {
+  if (error) {
+    console.log('❌ Erro ao buscar aluno:', error);
+    return null
+  }
+
+  if (!data) {
+    console.log('⚠️ Aluno não encontrado com este e-mail');
     return null
   }
 
   const student = mapRowToStudent(data as StudentRow)
 
+  console.log('👤 Aluno encontrado:', {
+    id: student.id,
+    name: student.name,
+    email: student.email,
+    hasCpf: !!student.cpf,
+    cpfPreview: student.cpf ? student.cpf.substring(0, 3) + '...' : null,
+    hasPassword: !!student.password,
+    passwordPreview: student.password ? student.password.substring(0, 3) + '...' : null,
+    firstAccess: student.firstAccess
+  });
+
   // Se for primeiro acesso, senha é o CPF
   if (student.firstAccess && student.cpf) {
-    if (password.trim() === student.cpf.trim()) {
+    console.log('🔑 Verificando CPF como senha (primeiro acesso)');
+    const cpfMatch = password.trim() === student.cpf.trim();
+    console.log('🔑 CPF match:', cpfMatch);
+    if (cpfMatch) {
       return student
     }
     return null
   }
 
   // Caso contrário, verifica senha normal
+  console.log('🔑 Verificando senha normal');
   if (student.password && password.trim() === student.password.trim()) {
+    console.log('✅ Senha correta');
     return student
   }
 
+  console.log('❌ Senha incorreta');
   return null
 }
 
