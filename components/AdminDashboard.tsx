@@ -658,7 +658,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
                     progress: 20 
                   },
                   { 
-                    label: "Cancelamentos", 
+                    label: "Cancelados", 
                     value: metrics.funnel.canceled, 
                     icon: Ban, 
                     bgIcon: "bg-red-100 text-red-700", 

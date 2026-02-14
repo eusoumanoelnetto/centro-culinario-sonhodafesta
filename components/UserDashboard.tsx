@@ -74,6 +74,8 @@ const UserDashboard: React.FC<UserDashboardProps> = ({
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const [userAvatarUrl, setUserAvatarUrl] = useState<string | null>(null);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
   
   // Rating Modal States
   const [showRatingModal, setShowRatingModal] = useState(false);
@@ -171,11 +173,12 @@ const UserDashboard: React.FC<UserDashboardProps> = ({
         });
 
         setStudentId(newStudent.id);
+        setUserAvatarUrl(newStudent.avatarUrl || null);
         
         onLogin({
           name: newStudent.name,
           email: newStudent.email,
-          avatar: BASE_MOCK_DATA.avatar,
+          avatar: newStudent.avatarUrl || BASE_MOCK_DATA.avatar,
         });
       } catch (error) {
         console.error('Erro ao cadastrar aluno', error);
@@ -230,11 +233,12 @@ const UserDashboard: React.FC<UserDashboardProps> = ({
 
         // Login direto - sem modal de primeiro acesso
         setStudentId(student.id);
+        setUserAvatarUrl(student.avatarUrl || null);
         
         onLogin({
           name: student.name,
           email: student.email,
-          avatar: BASE_MOCK_DATA.avatar,
+          avatar: student.avatarUrl || BASE_MOCK_DATA.avatar,
         });
       } catch (error) {
         console.error('❌ Erro ao autenticar aluno:', error);
@@ -777,12 +781,83 @@ const UserDashboard: React.FC<UserDashboardProps> = ({
                         <label className="text-xs font-bold text-gray-500 uppercase">E-mail</label>
                         <input type="email" defaultValue={user.email} className="w-full mt-1 p-3 bg-gray-50 rounded-lg border-transparent focus:bg-white focus:border-[#9A0000] border transition-all outline-none text-gray-800" />
                     </div>
-                     <div>
+                    <div>
                         <label className="text-xs font-bold text-gray-500 uppercase">Telefone</label>
                         <input type="tel" defaultValue="(21) 99888-7766" className="w-full mt-1 p-3 bg-gray-50 rounded-lg border-transparent focus:bg-white focus:border-[#9A0000] border transition-all outline-none text-gray-800" />
                     </div>
+
+                    <div>
+                      <label className="text-xs font-bold text-gray-500 uppercase">Foto do Perfil</label>
+                      <div className="mt-2 flex items-center gap-4">
+                        <div className="w-20 h-20 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden border-2 border-[#9A0000]">
+                          <img 
+                            src={userAvatarUrl || user.avatar || BASE_MOCK_DATA.avatar} 
+                            alt="Foto do Perfil" 
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                        <div className="flex-1">
+                          <input 
+                            type="file" 
+                            accept="image/*"
+                            onChange={async (e) => {
+                              const file = e.target.files?.[0];
+                              if (file) {
+                                setUploadingAvatar(true);
+                                try {
+                                  // Converter imagem para data URL
+                                  const reader = new FileReader();
+                                  reader.onload = (event) => {
+                                    const dataUrl = event.target?.result as string;
+                                    setUserAvatarUrl(dataUrl);
+                                  };
+                                  reader.readAsDataURL(file);
+                                } finally {
+                                  setUploadingAvatar(false);
+                                }
+                              }
+                            }}
+                            disabled={uploadingAvatar}
+                            className="block w-full text-sm text-gray-500
+                              file:mr-4 file:py-2 file:px-4
+                              file:rounded-lg file:border-0
+                              file:text-sm file:font-bold
+                              file:bg-[#9A0000] file:text-white
+                              hover:file:bg-[#7a0000]
+                              cursor-pointer disabled:opacity-50"
+                          />
+                          <p className="text-xs text-gray-400 mt-1">JPG, PNG ou GIF. Máx. 5MB</p>
+                        </div>
+                      </div>
+                    </div>
                     
-                    <button type="button" className="px-6 py-3 bg-[#9A0000] text-white rounded-lg font-bold shadow-md hover:bg-[#7a0000] transition-colors">
+                    <button 
+                      type="button"
+                      onClick={async () => {
+                        if (!studentId) {
+                          alert('Erro ao identificar o aluno. Faça login novamente.');
+                          return;
+                        }
+
+                        try {
+                          // Se houver foto nova, salvar
+                          if (userAvatarUrl) {
+                            const { updateStudent } = await import('../services/students');
+                            await updateStudent(studentId, {
+                              name: user.name,
+                              email: user.email,
+                              avatarUrl: userAvatarUrl,
+                            });
+                          }
+
+                          alert('✅ Dados atualizados com sucesso!');
+                        } catch (error) {
+                          console.error('Erro ao salvar dados:', error);
+                          alert('Não foi possível salvar os dados. Tente novamente.');
+                        }
+                      }}
+                      className="px-6 py-3 bg-[#9A0000] text-white rounded-lg font-bold shadow-md hover:bg-[#7a0000] transition-colors"
+                    >
                       Salvar Alterações
                     </button>
                  </form>

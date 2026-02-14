@@ -15,6 +15,7 @@ export interface StudentInput {
   source?: StudentSource
   leadTag?: string
   lastContact?: string
+  avatarUrl?: string
 }
 
 interface StudentRow {
@@ -31,6 +32,7 @@ interface StudentRow {
   source: string | null
   lead_tag: string | null
   last_contact_note: string | null
+  avatar_url: string | null
   created_at: string | null
 }
 
@@ -51,6 +53,7 @@ function mapRowToStudent(row: StudentRow): Student {
     source: (row.source as StudentSource | null) ?? null,
     leadTag: row.lead_tag,
     lastContact: row.last_contact_note,
+    avatarUrl: row.avatar_url,
     createdAt: row.created_at,
   }
 }
@@ -69,6 +72,7 @@ function buildInsertPayload(input: StudentInput) {
     source: input.source ?? 'admin',
     lead_tag: input.leadTag ?? null,
     last_contact_note: input.lastContact ?? null,
+    avatar_url: input.avatarUrl ?? null,
   }
 }
 

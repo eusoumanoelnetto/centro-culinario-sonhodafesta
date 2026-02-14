@@ -37,6 +37,7 @@ create table public.students (
   source text check (source in ('admin','self-service')),
   lead_tag text,
   last_contact_note text,
+  avatar_url text,
   created_at timestamp with time zone default now()
 );
 

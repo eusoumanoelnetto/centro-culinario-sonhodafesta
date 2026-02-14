@@ -55,5 +55,6 @@ export interface Student {
   source?: 'admin' | 'self-service' | null;
   leadTag?: string | null;
   lastContact?: string | null;
+  avatarUrl?: string | null;
   createdAt?: string | null;
 }
