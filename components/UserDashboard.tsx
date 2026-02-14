@@ -92,6 +92,9 @@ const UserDashboard: React.FC<UserDashboardProps> = ({
   const [correctionName, setCorrectionName] = useState("");
   const [isSubmittingCertRequest, setIsSubmittingCertRequest] = useState(false);
   const [certRequestError, setCertRequestError] = useState('');
+
+  // Save Settings Modal States
+  const [settingsModal, setSettingsModal] = useState<{ isOpen: boolean; type: 'success' | 'error'; message: string } | null>(null);
   
   // Login Form States
   const [email, setEmail] = useState('');
@@ -835,7 +838,7 @@ const UserDashboard: React.FC<UserDashboardProps> = ({
                       type="button"
                       onClick={async () => {
                         if (!studentId) {
-                          alert('Erro ao identificar o aluno. Faça login novamente.');
+                          setSettingsModal({ isOpen: true, type: 'error', message: 'Erro ao identificar o aluno. Faça login novamente.' });
                           return;
                         }
 
@@ -850,10 +853,10 @@ const UserDashboard: React.FC<UserDashboardProps> = ({
                             });
                           }
 
-                          alert('✅ Dados atualizados com sucesso!');
+                          setSettingsModal({ isOpen: true, type: 'success', message: 'Dados atualizados com sucesso!' });
                         } catch (error) {
                           console.error('Erro ao salvar dados:', error);
-                          alert('Não foi possível salvar os dados. Tente novamente.');
+                          setSettingsModal({ isOpen: true, type: 'error', message: 'Não foi possível salvar os dados. Tente novamente.' });
                         }
                       }}
                       className="px-6 py-3 bg-[#9A0000] text-white rounded-lg font-bold shadow-md hover:bg-[#7a0000] transition-colors"
@@ -1140,6 +1143,45 @@ const UserDashboard: React.FC<UserDashboardProps> = ({
                 <p className="text-center text-sm text-red-600 font-semibold">{certRequestError}</p>
               )}
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Settings Success/Error Modal */}
+      {settingsModal?.isOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-0 overflow-hidden">
+            <button 
+              onClick={() => setSettingsModal(null)}
+              className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 p-2 rounded-full hover:bg-gray-100 transition-colors z-10"
+            >
+              <X size={20} />
+            </button>
+
+            <div className="flex flex-col items-center text-center p-8 bg-gradient-to-br from-gray-50 to-gray-100">
+              <div className={`w-16 h-16 rounded-full flex items-center justify-center mb-4 ${settingsModal.type === 'success' ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'}`}>
+                {settingsModal.type === 'success' ? (
+                  <CheckCircle2 size={32} />
+                ) : (
+                  <AlertCircle size={32} />
+                )}
+              </div>
+              <h3 className="text-2xl font-bold text-gray-800 font-serif mb-2">
+                {settingsModal.type === 'success' ? 'Sucesso!' : 'Atenção'}
+              </h3>
+              <p className="text-gray-600 text-sm">
+                {settingsModal.message}
+              </p>
+            </div>
+
+            <div className="flex justify-center p-6 border-t border-gray-100">
+              <button
+                onClick={() => setSettingsModal(null)}
+                className="px-8 py-3 rounded-xl bg-[#9A0000] text-white font-bold hover:bg-[#7a0000] transition-colors"
+              >
+                OK
+              </button>
+            </div>
           </div>
         </div>
       )}
