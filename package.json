@@ -7,6 +7,7 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
+    "setup:client": "ts-node --esm scripts/setupClient.ts",
     "setup:students": "ts-node --esm scripts/setupStudents.ts",
     "sync:courses": "ts-node --esm syncCourses.ts",
     "list:courses": "ts-node --esm seed.ts",
