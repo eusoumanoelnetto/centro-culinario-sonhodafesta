@@ -106,9 +106,20 @@ const UserDashboard: React.FC<UserDashboardProps> = ({
   const [name, setName] = useState('');
   const [loginError, setLoginError] = useState('');
 
-  // Gamification Calc
-  const xpPercentage = (BASE_MOCK_DATA.currentXp / BASE_MOCK_DATA.nextLevelXp) * 100;
-  const pointsNeeded = BASE_MOCK_DATA.nextLevelXp - BASE_MOCK_DATA.currentXp;
+  // Real Student Data (não mockado)
+  const [enrolledCourses, setEnrolledCourses] = useState<Array<{
+    course: Course;
+    progress: number;
+    completed: boolean;
+    certificateUrl: string | null;
+  }>>([]);
+  
+  // Gamification - calculado baseado nos cursos reais
+  const currentXp = enrolledCourses.reduce((total, item) => total + (item.progress * 10), 0);
+  const nextLevelXp = 2000;
+  const level = currentXp === 0 ? 'Novo Aluno' : currentXp < 1000 ? 'Aluno Bronze' : currentXp < 3000 ? 'Aluno Prata' : 'Aluno Ouro';
+  const xpPercentage = (currentXp / nextLevelXp) * 100;
+  const pointsNeeded = nextLevelXp - currentXp;
 
   // Filtrar cursos favoritos reais
   const wishlistCourses = allCourses.filter(c => favorites.includes(c.id));
@@ -182,6 +193,21 @@ const UserDashboard: React.FC<UserDashboardProps> = ({
         setStudentId(newStudent.id);
         setUserAvatarUrl(newStudent.avatarUrl || null);
         
+        // Verificar se há curso associado (cadastrado pelo admin)
+        if (newStudent.course && allCourses.length > 0) {
+          const foundCourse = allCourses.find(c => c.title.toLowerCase().includes(newStudent.course!.toLowerCase()));
+          if (foundCourse) {
+            setEnrolledCourses([{
+              course: foundCourse,
+              progress: 0,
+              completed: false,
+              certificateUrl: null
+            }]);
+          }
+        } else {
+          setEnrolledCourses([]);
+        }
+        
         onLogin({
           name: newStudent.name,
           email: newStudent.email,
@@ -241,6 +267,21 @@ const UserDashboard: React.FC<UserDashboardProps> = ({
         // Login direto - sem modal de primeiro acesso
         setStudentId(student.id);
         setUserAvatarUrl(student.avatarUrl || null);
+        
+        // Verificar se há curso associado (cadastrado pelo admin)
+        if (student.course && allCourses.length > 0) {
+          const foundCourse = allCourses.find(c => c.title.toLowerCase().includes(student.course!.toLowerCase()));
+          if (foundCourse) {
+            setEnrolledCourses([{
+              course: foundCourse,
+              progress: 0,
+              completed: false,
+              certificateUrl: null
+            }]);
+          }
+        } else {
+          setEnrolledCourses([]);
+        }
         
         onLogin({
           name: student.name,
@@ -474,7 +515,7 @@ const UserDashboard: React.FC<UserDashboardProps> = ({
             <div className="flex items-center gap-4">
               <div className="hidden md:flex flex-col items-end mr-2">
                 <span className="text-sm font-bold text-gray-800">{user.name}</span>
-                <span className="text-xs text-[#d20000] bg-[#d20000]/10 px-2 py-0.5 rounded-full">{BASE_MOCK_DATA.level}</span>
+                <span className="text-xs text-[#d20000] bg-[#d20000]/10 px-2 py-0.5 rounded-full">{level}</span>
               </div>
               <img src={user.avatar || BASE_MOCK_DATA.avatar} alt="Perfil" className="w-10 h-10 rounded-full border-2 border-white shadow-md object-cover" />
               <button 
@@ -545,8 +586,8 @@ const UserDashboard: React.FC<UserDashboardProps> = ({
                   <Crown size={16} />
                 </div>
               </div>
-              <h3 className="text-xl font-bold text-[#9A0000] font-serif mb-1 relative z-10">{BASE_MOCK_DATA.level}</h3>
-              <p className="text-xs text-gray-500 mb-4 relative z-10">{BASE_MOCK_DATA.currentXp} Pontos de Doçura</p>
+              <h3 className="text-xl font-bold text-[#9A0000] font-serif mb-1 relative z-10">{level}</h3>
+              <p className="text-xs text-gray-500 mb-4 relative z-10">{currentXp} Pontos de Doçura</p>
               
               {/* Progress Bar */}
               <div className="w-full h-2.5 bg-gray-100 rounded-full mb-2 overflow-hidden relative z-10">
@@ -636,7 +677,7 @@ const UserDashboard: React.FC<UserDashboardProps> = ({
                 </div>
                 
                 <div className="grid gap-6">
-                  {BASE_MOCK_DATA.courses.map((item, idx) => (
+                  {enrolledCourses.length > 0 ? enrolledCourses.map((item, idx) => (
                     <div key={idx} className="bg-white p-4 sm:p-6 rounded-2xl border border-gray-100 shadow-sm flex flex-col sm:flex-row gap-6 hover:shadow-md transition-shadow relative overflow-hidden">
                       {item.completed && (
                         <div className="absolute top-0 right-0 bg-green-100 text-green-700 text-[10px] font-bold px-3 py-1 rounded-bl-xl flex items-center gap-1">
@@ -690,7 +731,16 @@ const UserDashboard: React.FC<UserDashboardProps> = ({
                         </button>
                       </div>
                     </div>
-                  ))}
+                  )) : (
+                    <div className="bg-gradient-to-br from-gray-50 to-white p-12 rounded-2xl border-2 border-dashed border-gray-200 text-center">
+                      <BookOpen className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                      <h3 className="text-xl font-bold text-gray-700 mb-2">Nenhum curso ainda</h3>
+                      <p className="text-gray-500 mb-6">Explore nosso catálogo e comece sua jornada culinária!</p>
+                      <button onClick={() => onNavigate('catalog')} className="bg-[#9A0000] text-white px-8 py-3 rounded-xl font-bold hover:bg-[#7a0000] transition-colors">
+                        Ver Catálogo
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
@@ -700,8 +750,8 @@ const UserDashboard: React.FC<UserDashboardProps> = ({
                <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2">
                 <h2 className="text-2xl font-bold text-gray-800 font-serif">Meus Certificados</h2>
                 <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
-                  {BASE_MOCK_DATA.courses.filter(c => c.completed).length > 0 ? (
-                    BASE_MOCK_DATA.courses.filter(c => c.completed).map((item, idx) => (
+                  {enrolledCourses.filter(c => c.completed).length > 0 ? (
+                    enrolledCourses.filter(c => c.completed).map((item, idx) => (
                       <div key={idx} className="p-6 border-b border-gray-50 last:border-0 flex flex-col sm:flex-row items-center justify-between hover:bg-gray-50 transition-colors gap-4">
                         <div className="flex items-center gap-4 w-full sm:w-auto">
                           <div className="w-12 h-12 bg-yellow-100 rounded-full flex items-center justify-center text-yellow-600 flex-shrink-0">
@@ -964,7 +1014,7 @@ const UserDashboard: React.FC<UserDashboardProps> = ({
                 <h2 className="text-3xl font-bold font-serif mb-1">{user.name}</h2>
                 <div className="flex flex-col items-center gap-1">
                   <p className="text-[#fff304] font-bold text-sm bg-black/20 inline-block px-4 py-1 rounded-full border border-white/10">
-                    {BASE_MOCK_DATA.level}
+                    {level}
                   </p>
                   <p className="text-[10px] text-red-200 opacity-80">{BASE_MOCK_DATA.currentXp} pts</p>
                 </div>
