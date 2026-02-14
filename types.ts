@@ -46,7 +46,10 @@ export interface Student {
   clientId: string;
   name: string;
   email: string;
+  cpf?: string | null;
   whatsapp?: string | null;
+  password?: string | null;
+  firstAccess?: boolean | null;
   status?: string | null;
   course?: string | null;
   source?: 'admin' | 'self-service' | null;

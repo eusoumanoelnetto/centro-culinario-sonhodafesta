@@ -150,7 +150,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
   const [courseData, setCourseData] = useState({
     title: '', instructor: '', instagram: '', date: '', price: '', category: 'Confeitaria', description: '', capacity: '30'
   });
-  const [studentData, setStudentData] = useState({ name: '', email: '', whatsapp: '', status: 'Ativo', course: '' });
+  const [studentData, setStudentData] = useState({ name: '', email: '', cpf: '', whatsapp: '', status: 'Ativo', course: '' });
   const [teacherData, setTeacherData] = useState({ name: '', specialty: '', instagram: '' });
   const [blogData, setBlogData] = useState({ title: '', author: '', category: 'Dicas', content: '', tags: '' });
   
@@ -434,7 +434,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
     setEditingId(null);
     setUploadedImage(null);
     setCourseData({ title: '', instructor: '', instagram: '', date: '', price: '', category: 'Confeitaria', description: '', capacity: '30' });
-    setStudentData({ name: '', email: '', whatsapp: '', status: 'Ativo', course: '' });
+    setStudentData({ name: '', email: '', cpf: '', whatsapp: '', status: 'Ativo', course: '' });
     setTeacherData({ name: '', specialty: '', instagram: '' });
     setBlogData({ title: '', author: '', category: 'Dicas', content: '', tags: '' });
     setViewMode('form');
@@ -459,6 +459,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
       setStudentData({
         name: item.name,
         email: item.email,
+        cpf: item.cpf || '',
         whatsapp: item.whatsapp || '',
         status: item.status || 'Ativo',
         course: item.course || '',
@@ -521,10 +522,14 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
     } else if (activeTab === 'students') {
       const normalizedStatus = (studentData.status || 'Ativo').trim() || 'Ativo';
       const normalizedCourse = studentData.course.trim();
+      const normalizedCpf = studentData.cpf.trim();
       const studentPayload = {
         name: studentData.name.trim(),
         email: studentData.email.trim(),
+        cpf: normalizedCpf || undefined,
         whatsapp: studentData.whatsapp?.trim() || undefined,
+        password: normalizedCpf || undefined, // CPF vira senha padrão
+        firstAccess: true,
         status: normalizedStatus,
         course: normalizedCourse ? normalizedCourse : undefined,
         source: 'admin' as const,
@@ -550,7 +555,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
         }
 
         await loadStudents();
-        setStudentData({ name: '', email: '', whatsapp: '', status: 'Ativo', course: '' });
+        setStudentData({ name: '', email: '', cpf: '', whatsapp: '', status: 'Ativo', course: '' });
         setEditingId(null);
       } catch (error) {
         console.error('Erro ao salvar aluno', error);
@@ -1828,6 +1833,19 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
                             </div>
                           </div>
                           <div>
+                            <label className="text-xs font-bold text-gray-500 uppercase ml-1">CPF</label>
+                            <input 
+                              type="text" 
+                              value={studentData.cpf} 
+                              onChange={e => setStudentData({...studentData, cpf: e.target.value})} 
+                              placeholder="000.000.000-00" 
+                              maxLength={14}
+                              className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-[#9A0000] outline-none bg-white text-gray-900 placeholder:text-gray-400" 
+                            />
+                            <p className="text-[10px] text-gray-400 mt-1 ml-1">Será usado como senha padrão no primeiro acesso</p>
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <label className="text-xs font-bold text-gray-500 uppercase ml-1">Status</label>
                             <select value={studentData.status} onChange={e => setStudentData({...studentData, status: e.target.value})} className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-[#9A0000] outline-none bg-white text-gray-900">
                               <option>Ativo</option><option>Pendente</option><option>Cancelado</option>

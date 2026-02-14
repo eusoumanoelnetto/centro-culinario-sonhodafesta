@@ -9,7 +9,7 @@ import { Course } from '../types';
 import { COURSES } from '../constants';
 import CourseCard from './CourseCard';
 import { recordFormSubmission } from '../services/formSubmissions';
-import { createStudent } from '../services/students';
+import { createStudent, authenticateStudent, updatePassword } from '../services/students';
 
 interface UserDashboardProps {
   onBack: () => void;
@@ -69,6 +69,13 @@ const UserDashboard: React.FC<UserDashboardProps> = ({
   const [activeTab, setActiveTab] = useState<'courses' | 'certificates' | 'wishlist' | 'settings'>('courses');
   const [showIdCard, setShowIdCard] = useState(false);
   
+  // First Access Password Change Modal
+  const [showFirstAccessModal, setShowFirstAccessModal] = useState(false);
+  const [studentId, setStudentId] = useState<string | null>(null);
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
+  
   // Rating Modal States
   const [showRatingModal, setShowRatingModal] = useState(false);
   const [courseToRate, setCourseToRate] = useState<Course | null>(null);
@@ -89,6 +96,7 @@ const UserDashboard: React.FC<UserDashboardProps> = ({
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
+  const [loginError, setLoginError] = useState('');
 
   // Gamification Calc
   const xpPercentage = (BASE_MOCK_DATA.currentXp / BASE_MOCK_DATA.nextLevelXp) * 100;
@@ -138,13 +146,21 @@ const UserDashboard: React.FC<UserDashboardProps> = ({
   // Login Logic
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setLoginError('');
 
     if (isRegistering) {
-      // Cadastro: gravar na tabela students
+      // Cadastro: gravar na tabela students com senha
+      if (!password || password.length < 4) {
+        setLoginError('A senha deve ter pelo menos 4 caracteres.');
+        return;
+      }
+
       try {
         await createStudent({
           name: name.trim() || 'Novo Usuário',
           email: email.trim(),
+          password: password.trim(),
+          firstAccess: false, // Ele já criou a senha
           status: 'Ativo',
           source: 'self-service',
         });
@@ -155,44 +171,86 @@ const UserDashboard: React.FC<UserDashboardProps> = ({
           name: name.trim() || null,
         });
 
-        setTimeout(() => {
-          onLogin({
-            name: name || 'Novo Usuário',
-            email: email,
-            avatar: BASE_MOCK_DATA.avatar,
-          });
-        }, 800);
+        onLogin({
+          name: name || 'Novo Usuário',
+          email: email,
+          avatar: BASE_MOCK_DATA.avatar,
+        });
       } catch (error) {
         console.error('Erro ao cadastrar aluno', error);
-        alert('Não foi possível concluir seu cadastro. Tente novamente.');
+        setLoginError('Não foi possível concluir seu cadastro. Tente novamente.');
       }
     } else {
-      // Login: apenas registrar acesso
+      // Login: autenticar com senha ou CPF
+      if (!password) {
+        setLoginError('Digite sua senha ou CPF.');
+        return;
+      }
+
       try {
+        const student = await authenticateStudent(email.trim(), password.trim());
+
+        if (!student) {
+          setLoginError('E-mail ou senha incorretos.');
+          return;
+        }
+
         await recordFormSubmission('user_login', {
           mode: 'login',
           email: email.trim(),
-          name: name.trim() || null,
+          name: student.name,
+        });
+
+        // Se for primeiro acesso (senha = CPF), pedir para trocar
+        if (student.firstAccess) {
+          setStudentId(student.id);
+          setShowFirstAccessModal(true);
+          return;
+        }
+
+        // Login normal
+        onLogin({
+          name: student.name,
+          email: student.email,
+          avatar: BASE_MOCK_DATA.avatar,
         });
       } catch (error) {
-        console.error('Erro ao registrar acesso do aluno', error);
+        console.error('Erro ao autenticar aluno', error);
+        setLoginError('Erro ao fazer login. Tente novamente.');
       }
+    }
+  };
 
-      setTimeout(() => {
-        if (email.toLowerCase() === 'email@gmail.com') {
-          onLogin({
-            name: 'Palhacito',
-            email: 'email@gmail.com',
-            avatar: 'https://i.imgur.com/l2VarrP.jpeg',
-          });
-        } else {
-          onLogin({
-            name: 'Usuário Demo',
-            email: email,
-            avatar: BASE_MOCK_DATA.avatar,
-          });
-        }
-      }, 800);
+  const handleChangePassword = async () => {
+    if (!studentId) return;
+
+    if (!newPassword || newPassword.length < 4) {
+      alert('A nova senha deve ter pelo menos 4 caracteres.');
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      alert('As senhas não coincidem.');
+      return;
+    }
+
+    setIsChangingPassword(true);
+
+    try {
+      await updatePassword(studentId, newPassword);
+      setShowFirstAccessModal(false);
+      
+      // Logar automaticamente após trocar senha
+      onLogin({
+        name: name || 'Aluno',
+        email: email,
+        avatar: BASE_MOCK_DATA.avatar,
+      });
+    } catch (error) {
+      console.error('Erro ao trocar senha', error);
+      alert('Não foi possível trocar sua senha. Tente novamente.');
+    } finally {
+      setIsChangingPassword(false);
     }
   };
 
@@ -333,6 +391,13 @@ const UserDashboard: React.FC<UserDashboardProps> = ({
                     {isRegistering ? "Cadastrar" : "Entrar"}
                     <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
                   </button>
+
+                  {loginError && (
+                    <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-xl text-red-600 text-sm flex items-center gap-2">
+                      <AlertCircle size={16} />
+                      {loginError}
+                    </div>
+                  )}
                 </form>
 
                 <div className="mt-8 text-center">
@@ -348,6 +413,69 @@ const UserDashboard: React.FC<UserDashboardProps> = ({
                 </div>
               </div>
             </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // FIRST ACCESS PASSWORD CHANGE MODAL
+  if (showFirstAccessModal && studentId) {
+    return (
+      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+        <div className="bg-white rounded-2xl p-8 max-w-md w-full shadow-2xl animate-in zoom-in-95 duration-200">
+          <div className="text-center mb-6">
+            <div className="w-16 h-16 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Lock size={32} className="text-yellow-600" />
+            </div>
+            <h2 className="text-2xl font-bold text-gray-800 mb-2">Primeiro Acesso</h2>
+            <p className="text-gray-600 text-sm">
+              Por segurança, crie uma nova senha para sua conta.
+            </p>
+          </div>
+
+          <div className="space-y-4">
+            <div>
+              <label className="text-xs font-bold text-gray-500 uppercase ml-1 block mb-2">Nova Senha</label>
+              <input
+                type="password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                placeholder="Digite sua nova senha"
+                className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-[#9A0000] outline-none"
+                minLength={4}
+                required
+              />
+            </div>
+            <div>
+              <label className="text-xs font-bold text-gray-500 uppercase ml-1 block mb-2">Confirmar Senha</label>
+              <input
+                type="password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                placeholder="Digite novamente"
+                className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-[#9A0000] outline-none"
+                minLength={4}
+                required
+              />
+            </div>
+            <button
+              onClick={handleChangePassword}
+              disabled={isChangingPassword}
+              className="w-full bg-[#9A0000] text-white font-bold py-4 rounded-xl hover:bg-[#7a0000] transition-all shadow-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            >
+              {isChangingPassword ? (
+                <>
+                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  Salvando...
+                </>
+              ) : (
+                <>
+                  <CheckCircle2 size={20} />
+                  Confirmar Nova Senha
+                </>
+              )}
+            </button>
           </div>
         </div>
       </div>
@@ -698,6 +826,56 @@ const UserDashboard: React.FC<UserDashboardProps> = ({
                       Salvar Alterações
                     </button>
                  </form>
+
+                 {/* Change Password Section */}
+                 <div className="mt-12 pt-8 border-t border-gray-100">
+                   <h2 className="text-xl font-bold text-gray-800 mb-6">Segurança</h2>
+                   <div className="space-y-4">
+                     <div>
+                       <label className="text-xs font-bold text-gray-500 uppercase">Nova Senha</label>
+                       <input 
+                         type="password" 
+                         value={newPassword}
+                         onChange={(e) => setNewPassword(e.target.value)}
+                         placeholder="Digite sua nova senha"
+                         className="w-full mt-1 p-3 bg-gray-50 rounded-lg border-transparent focus:bg-white focus:border-[#9A0000] border transition-all outline-none text-gray-800" 
+                       />
+                     </div>
+                     <div>
+                       <label className="text-xs font-bold text-gray-500 uppercase">Confirmar Nova Senha</label>
+                       <input 
+                         type="password" 
+                         value={confirmPassword}
+                         onChange={(e) => setConfirmPassword(e.target.value)}
+                         placeholder="Digite novamente"
+                         className="w-full mt-1 p-3 bg-gray-50 rounded-lg border-transparent focus:bg-white focus:border-[#9A0000] border transition-all outline-none text-gray-800" 
+                       />
+                     </div>
+                     <button
+                       onClick={() => {
+                         if (!studentId) {
+                           alert('Não foi possível identificar o aluno. Faça login novamente.');
+                           return;
+                         }
+                         handleChangePassword();
+                       }}
+                       disabled={isChangingPassword || !newPassword || !confirmPassword}
+                       className="px-6 py-3 bg-gray-800 text-white rounded-lg font-bold shadow-md hover:bg-gray-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                     >
+                       {isChangingPassword ? (
+                         <>
+                           <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                           Salvando...
+                         </>
+                       ) : (
+                         <>
+                           <Lock size={18} />
+                           Alterar Senha
+                         </>
+                       )}
+                     </button>
+                   </div>
+                 </div>
                </div>
             )}
           </div>

@@ -6,7 +6,10 @@ export type StudentSource = 'admin' | 'self-service'
 export interface StudentInput {
   name: string
   email: string
+  cpf?: string
   whatsapp?: string
+  password?: string
+  firstAccess?: boolean
   status?: string
   course?: string
   source?: StudentSource
@@ -19,7 +22,10 @@ interface StudentRow {
   client_id: string
   name: string
   email: string
+  cpf: string | null
   whatsapp: string | null
+  password: string | null
+  first_access: boolean | null
   status: string | null
   course: string | null
   source: string | null
@@ -36,7 +42,10 @@ function mapRowToStudent(row: StudentRow): Student {
     clientId: row.client_id,
     name: row.name,
     email: row.email,
+    cpf: row.cpf,
     whatsapp: row.whatsapp,
+    password: row.password,
+    firstAccess: row.first_access,
     status: row.status,
     course: row.course,
     source: (row.source as StudentSource | null) ?? null,
@@ -51,7 +60,10 @@ function buildInsertPayload(input: StudentInput) {
     client_id: CLIENT_ID,
     name: input.name.trim(),
     email: input.email.trim().toLowerCase(),
+    cpf: input.cpf ? input.cpf.trim() : null,
     whatsapp: input.whatsapp ? input.whatsapp.trim() : null,
+    password: input.password ? input.password.trim() : null,
+    first_access: input.firstAccess ?? true,
     status: input.status ?? 'Pendente',
     course: input.course ?? null,
     source: input.source ?? 'admin',
@@ -112,6 +124,51 @@ export async function deleteStudent(id: string): Promise<void> {
   const { error } = await supabase
     .from(STUDENTS_TABLE)
     .delete()
+    .eq('id', id)
+    .eq('client_id', CLIENT_ID)
+
+  if (error) {
+    throw error
+  }
+}
+
+export async function authenticateStudent(email: string, password: string): Promise<Student | null> {
+  const { data, error } = await supabase
+    .from(STUDENTS_TABLE)
+    .select('*')
+    .eq('client_id', CLIENT_ID)
+    .eq('email', email.trim().toLowerCase())
+    .single()
+
+  if (error || !data) {
+    return null
+  }
+
+  const student = mapRowToStudent(data as StudentRow)
+
+  // Se for primeiro acesso, senha é o CPF
+  if (student.firstAccess && student.cpf) {
+    if (password.trim() === student.cpf.trim()) {
+      return student
+    }
+    return null
+  }
+
+  // Caso contrário, verifica senha normal
+  if (student.password && password.trim() === student.password.trim()) {
+    return student
+  }
+
+  return null
+}
+
+export async function updatePassword(id: string, newPassword: string): Promise<void> {
+  const { error } = await supabase
+    .from(STUDENTS_TABLE)
+    .update({ 
+      password: newPassword.trim(),
+      first_access: false
+    })
     .eq('id', id)
     .eq('client_id', CLIENT_ID)
 
