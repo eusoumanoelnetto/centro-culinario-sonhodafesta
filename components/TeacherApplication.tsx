@@ -1,6 +1,7 @@
 
 import React, { useState } from 'react';
 import { ArrowLeft, User, Mail, Phone, Instagram, Send, CheckCircle2, Award, Users, Store } from 'lucide-react';
+import { recordFormSubmission } from '../services/formSubmissions';
 
 interface TeacherApplicationProps {
   onBack: () => void;
@@ -9,17 +10,36 @@ interface TeacherApplicationProps {
 const TeacherApplication: React.FC<TeacherApplicationProps> = ({ onBack }) => {
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [applicationError, setApplicationError] = useState('');
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setIsLoading(true);
-    
-    // Simulação de envio
-    setTimeout(() => {
-      setIsLoading(false);
+    setApplicationError('');
+
+    const form = e.currentTarget;
+    const data = new FormData(form);
+
+    const payload = {
+      name: data.get('name')?.toString().trim() || '',
+      instagram: data.get('instagram')?.toString().trim() || '',
+      email: data.get('email')?.toString().trim() || '',
+      phone: data.get('phone')?.toString().trim() || '',
+      interest_area: data.get('interest')?.toString().trim() || '',
+      experience: data.get('experience')?.toString().trim() || '',
+    };
+
+    try {
+      await recordFormSubmission('teacher_application', payload);
+      form.reset();
       setIsSubmitted(true);
       window.scrollTo(0, 0);
-    }, 1500);
+    } catch (error) {
+      console.error('Erro ao enviar candidatura', error);
+      setApplicationError('Não foi possível enviar sua candidatura agora. Tente novamente.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -118,7 +138,8 @@ const TeacherApplication: React.FC<TeacherApplicationProps> = ({ onBack }) => {
                       <User size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                       <input 
                         required
-                        type="text" 
+                        type="text"
+                        name="name"
                         placeholder="Seu nome"
                         className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 focus:border-[#9A0000] focus:ring-1 focus:ring-[#9A0000] focus:outline-none transition-all bg-gray-50 focus:bg-white text-gray-900"
                       />
@@ -130,7 +151,8 @@ const TeacherApplication: React.FC<TeacherApplicationProps> = ({ onBack }) => {
                       <Instagram size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                       <input 
                         required
-                        type="text" 
+                        type="text"
+                        name="instagram"
                         placeholder="@seuinsta"
                         className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 focus:border-[#9A0000] focus:ring-1 focus:ring-[#9A0000] focus:outline-none transition-all bg-gray-50 focus:bg-white text-gray-900"
                       />
@@ -145,7 +167,8 @@ const TeacherApplication: React.FC<TeacherApplicationProps> = ({ onBack }) => {
                       <Mail size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                       <input 
                         required
-                        type="email" 
+                        type="email"
+                        name="email"
                         placeholder="seu@email.com"
                         className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 focus:border-[#9A0000] focus:ring-1 focus:ring-[#9A0000] focus:outline-none transition-all bg-gray-50 focus:bg-white text-gray-900"
                       />
@@ -157,7 +180,8 @@ const TeacherApplication: React.FC<TeacherApplicationProps> = ({ onBack }) => {
                       <Phone size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                       <input 
                         required
-                        type="tel" 
+                        type="tel"
+                        name="phone"
                         placeholder="(21) 99999-9999"
                         className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 focus:border-[#9A0000] focus:ring-1 focus:ring-[#9A0000] focus:outline-none transition-all bg-gray-50 focus:bg-white text-gray-900"
                       />
@@ -167,7 +191,7 @@ const TeacherApplication: React.FC<TeacherApplicationProps> = ({ onBack }) => {
 
                 <div className="space-y-1">
                   <label className="text-sm font-bold text-gray-700 ml-1">Área de Interesse</label>
-                  <select className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-[#9A0000] focus:ring-1 focus:ring-[#9A0000] focus:outline-none transition-all bg-gray-50 focus:bg-white appearance-none text-gray-900">
+                  <select name="interest" className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-[#9A0000] focus:ring-1 focus:ring-[#9A0000] focus:outline-none transition-all bg-gray-50 focus:bg-white appearance-none text-gray-900">
                     <option>Confeitaria (Bolos e Doces)</option>
                     <option>Salgados e Culinária Quente</option>
                     <option>Decorações de Festas</option>
@@ -181,6 +205,7 @@ const TeacherApplication: React.FC<TeacherApplicationProps> = ({ onBack }) => {
                   <textarea 
                     required
                     rows={4}
+                    name="experience"
                     placeholder="Quais cursos você gostaria de ministrar? Há quanto tempo atua na área?"
                     className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-[#9A0000] focus:ring-1 focus:ring-[#9A0000] focus:outline-none transition-all bg-gray-50 focus:bg-white resize-none text-gray-900"
                   ></textarea>
@@ -199,6 +224,10 @@ const TeacherApplication: React.FC<TeacherApplicationProps> = ({ onBack }) => {
                     </>
                   )}
                 </button>
+
+                {applicationError && (
+                  <p className="text-center text-sm text-red-600 font-semibold">{applicationError}</p>
+                )}
                 
                 <p className="text-center text-xs text-gray-400 mt-4">
                   Ao enviar, você concorda com nossa Política de Privacidade.

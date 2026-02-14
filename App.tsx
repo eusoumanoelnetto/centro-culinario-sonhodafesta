@@ -26,6 +26,7 @@ import {
   MapPin, Phone, Instagram, Youtube, Mail, ArrowRight, Award, ShieldCheck, Zap,
   Gift, Egg, Heart, Baby, Flower, User, MessageCircle, Lock, Cookie, Facebook
 } from 'lucide-react';
+import { recordFormSubmission } from './services/formSubmissions';
 
 const App: React.FC = () => {
   const [activeCategory, setActiveCategory] = useState('Todos');
@@ -59,6 +60,8 @@ const App: React.FC = () => {
 
   // Cookie Consent State
   const [showCookieConsent, setShowCookieConsent] = useState(false);
+  const [leadStatus, setLeadStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+  const [leadFeedback, setLeadFeedback] = useState('');
 
   const logoUrl = "https://i.imgur.com/l2VarrP.jpeg";
 
@@ -219,9 +222,30 @@ const App: React.FC = () => {
     window.scrollTo(0, 0);
   };
 
-  const handleLeadSubmit = (e: React.FormEvent) => {
+  const handleLeadSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    alert("Obrigado! Você agora faz parte do nosso Canal de Ofertas. Fique de olho no seu WhatsApp!");
+    setLeadStatus('loading');
+    setLeadFeedback('');
+
+    const form = e.currentTarget;
+    const data = new FormData(form);
+
+    const payload = {
+      name: data.get('name')?.toString().trim() || '',
+      email: data.get('email')?.toString().trim() || '',
+      phone: data.get('phone')?.toString().trim() || '',
+    };
+
+    try {
+      await recordFormSubmission('newsletter', payload);
+      form.reset();
+      setLeadStatus('success');
+      setLeadFeedback('Cadastro realizado! Em breve você receberá nossas novidades.');
+    } catch (error) {
+      console.error('Erro ao cadastrar lead', error);
+      setLeadStatus('error');
+      setLeadFeedback('Não foi possível concluir o cadastro. Tente novamente.');
+    }
   };
 
   const handleLogin = (userData: {name: string, email: string, avatar?: string}) => {
@@ -577,7 +601,13 @@ const App: React.FC = () => {
                      <label className="block text-sm font-bold text-gray-700 mb-2 ml-1">Nome Completo</label>
                      <div className="relative">
                        <User className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
-                       <input required type="text" placeholder="Como podemos te chamar?" className="w-full pl-12 pr-4 py-4 rounded-xl bg-gray-50 border border-gray-200 focus:outline-none focus:border-[#9A0000] focus:bg-white transition-all" />
+                       <input
+                         required
+                         type="text"
+                         name="name"
+                         placeholder="Como podemos te chamar?"
+                         className="w-full pl-12 pr-4 py-4 rounded-xl bg-gray-50 border border-gray-200 focus:outline-none focus:border-[#9A0000] focus:bg-white transition-all"
+                       />
                      </div>
                    </div>
                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -585,20 +615,42 @@ const App: React.FC = () => {
                        <label className="block text-sm font-bold text-gray-700 mb-2 ml-1">E-mail</label>
                        <div className="relative">
                          <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
-                         <input required type="email" placeholder="seu@email.com" className="w-full pl-12 pr-4 py-4 rounded-xl bg-gray-50 border border-gray-200 focus:outline-none focus:border-[#9A0000] focus:bg-white transition-all" />
+                         <input
+                           required
+                           type="email"
+                           name="email"
+                           placeholder="seu@email.com"
+                           className="w-full pl-12 pr-4 py-4 rounded-xl bg-gray-50 border border-gray-200 focus:outline-none focus:border-[#9A0000] focus:bg-white transition-all"
+                         />
                        </div>
                      </div>
                      <div>
                        <label className="block text-sm font-bold text-gray-700 mb-2 ml-1">WhatsApp</label>
                        <div className="relative">
                          <Phone className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
-                         <input required type="tel" placeholder="(21) 99999-9999" className="w-full pl-12 pr-4 py-4 rounded-xl bg-gray-50 border border-gray-200 focus:outline-none focus:border-[#9A0000] focus:bg-white transition-all" />
+                         <input
+                           required
+                           type="tel"
+                           name="phone"
+                           placeholder="(21) 99999-9999"
+                           className="w-full pl-12 pr-4 py-4 rounded-xl bg-gray-50 border border-gray-200 focus:outline-none focus:border-[#9A0000] focus:bg-white transition-all"
+                         />
                        </div>
                      </div>
                    </div>
-                   <button type="submit" className="mt-4 w-full bg-[#9A0000] text-white font-bold py-4 rounded-xl hover:bg-[#7a0000] transition-all shadow-lg shadow-blue-900/10 flex items-center justify-center gap-2 group">
-                     Quero receber novidades e ofertas <ArrowRight size={20} className="group-hover:translate-x-1 transition-transform" />
+                   <button
+                     type="submit"
+                     disabled={leadStatus === 'loading'}
+                     className="mt-4 w-full bg-[#9A0000] text-white font-bold py-4 rounded-xl hover:bg-[#7a0000] transition-all shadow-lg shadow-blue-900/10 flex items-center justify-center gap-2 group disabled:opacity-60"
+                   >
+                     {leadStatus === 'loading' ? 'Enviando...' : 'Quero receber novidades e ofertas'}
+                     {leadStatus !== 'loading' && <ArrowRight size={20} className="group-hover:translate-x-1 transition-transform" />}
                    </button>
+                   {leadFeedback && (
+                     <p className={`text-center text-sm font-medium ${leadStatus === 'success' ? 'text-green-600' : 'text-red-600'}`}>
+                       {leadFeedback}
+                     </p>
+                   )}
                    <div className="mt-4 space-y-2">
                      <p className="text-center text-xs text-gray-500 flex items-center justify-center gap-1.5 font-medium">
                        <MessageCircle size={16} className="text-[#9a0000]" /> Entre para o nosso Canal de Ofertas no WhatsApp.

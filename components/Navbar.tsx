@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { Menu, X, ShoppingCart, User, Search, Heart, ArrowRight, Loader2 } from 'lucide-react';
+import { recordFormSubmission } from '../services/formSubmissions';
 
 interface NavbarProps {
   onNavigate: (page: string) => void;
@@ -15,6 +16,7 @@ const Navbar: React.FC<NavbarProps> = ({ onNavigate, user, cartCount = 0, onOpen
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
+  const [searchError, setSearchError] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
   
   // Using the new logo provided
@@ -55,15 +57,24 @@ const Navbar: React.FC<NavbarProps> = ({ onNavigate, user, cartCount = 0, onOpen
     onNavigate(page);
     setIsMenuOpen(false);
     setIsSearchOpen(false);
+    setSearchError('');
   };
 
-  const handleSearchSubmit = (e: React.FormEvent) => {
+  const handleSearchSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!inputRef.current?.value.trim()) return;
 
+    const query = inputRef.current.value.trim();
     setIsSearching(true);
-    
-    // Simula um pequeno delay de busca para feedback visual
+    setSearchError('');
+
+    try {
+      await recordFormSubmission('search', { query });
+    } catch (error) {
+      console.error('Erro ao registrar busca', error);
+      setSearchError('Não foi possível registrar sua busca agora.');
+    }
+
     setTimeout(() => {
       setIsSearching(false);
       onNavigate('catalog');
@@ -116,11 +127,17 @@ const Navbar: React.FC<NavbarProps> = ({ onNavigate, user, cartCount = 0, onOpen
                     {isSearching ? <Loader2 size={24} className="animate-spin" /> : <ArrowRight size={24} />}
                   </button>
                 </form>
+                {searchError && (
+                  <p className="mt-3 text-center text-xs text-red-500 font-semibold">{searchError}</p>
+                )}
                 
                 {/* Close Button and Hint */}
                 <div className="absolute top-1/2 -translate-y-1/2 -right-12 md:-right-16 flex flex-col items-center">
-                   <button 
-                    onClick={() => setIsSearchOpen(false)}
+                  <button 
+                    onClick={() => {
+                      setIsSearchOpen(false);
+                      setSearchError('');
+                    }}
                     className="p-2 text-gray-400 hover:text-[#9A0000] hover:bg-gray-50 rounded-full transition-all transform hover:rotate-90"
                     aria-label="Fechar busca"
                   >
@@ -187,6 +204,7 @@ const Navbar: React.FC<NavbarProps> = ({ onNavigate, user, cartCount = 0, onOpen
                   onClick={() => {
                     setIsSearchOpen(true);
                     setIsMenuOpen(false);
+                    setSearchError('');
                   }}
                   className="p-2 text-gray-400 hover:text-[#9A0000] transition-colors hover:bg-gray-50 rounded-full group"
                   aria-label="Buscar"

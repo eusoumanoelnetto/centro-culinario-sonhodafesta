@@ -5,6 +5,7 @@ import {
   ShieldCheck, ArrowRight, MapPin, Calendar, Clock, AlertCircle 
 } from 'lucide-react';
 import { Course } from '../types';
+import { recordFormSubmission } from '../services/formSubmissions';
 
 interface CheckoutPageProps {
   cartItems: Course[];
@@ -15,6 +16,7 @@ interface CheckoutPageProps {
 
 const CheckoutPage: React.FC<CheckoutPageProps> = ({ cartItems, onRemoveItem, onSuccess, onBack }) => {
   const [step, setStep] = useState<'form' | 'processing' | 'success'>('form');
+  const [submissionError, setSubmissionError] = useState('');
   
   const [formData, setFormData] = useState({
     fullName: '',
@@ -31,16 +33,40 @@ const CheckoutPage: React.FC<CheckoutPageProps> = ({ cartItems, onRemoveItem, on
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setSubmissionError('');
     setStep('processing');
-    
-    // Simula o tempo de redirecionamento para o gateway de pagamento
-    setTimeout(() => {
-      setStep('success');
-      // Limpa o carrinho no componente pai após um tempo
-      setTimeout(() => onSuccess(), 8000); 
-    }, 2500);
+
+    const orderPayload = {
+      customer: {
+        name: formData.fullName.trim(),
+        cpf: formData.cpf.trim(),
+        email: formData.email.trim(),
+        phone: formData.phone.trim(),
+      },
+      payment_method: formData.paymentMethod,
+      total,
+      items: cartItems.map((item) => ({
+        id: item.id,
+        title: item.title,
+        price: item.price,
+        seat: item.selectedSeat || null,
+      })),
+    };
+
+    try {
+      await recordFormSubmission('checkout', orderPayload);
+
+      setTimeout(() => {
+        setStep('success');
+        setTimeout(() => onSuccess(), 8000);
+      }, 2500);
+    } catch (error) {
+      console.error('Erro ao registrar pedido', error);
+      setSubmissionError('Não foi possível finalizar o pedido. Tente novamente.');
+      setStep('form');
+    }
   };
 
   if (step === 'processing') {
@@ -213,6 +239,9 @@ const CheckoutPage: React.FC<CheckoutPageProps> = ({ cartItems, onRemoveItem, on
                   </div>
                 </div>
               </form>
+              {submissionError && (
+                <p className="text-sm text-red-600 font-semibold mt-4">{submissionError}</p>
+              )}
             </div>
 
             {/* Section 2: Payment Method (Visual Only) */}

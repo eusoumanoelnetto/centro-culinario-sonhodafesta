@@ -8,6 +8,8 @@ import {
 import { Course } from '../types';
 import { COURSES } from '../constants';
 import CourseCard from './CourseCard';
+import { recordFormSubmission } from '../services/formSubmissions';
+import { createStudent } from '../services/students';
 
 interface UserDashboardProps {
   onBack: () => void;
@@ -80,6 +82,8 @@ const UserDashboard: React.FC<UserDashboardProps> = ({
   const [requestType, setRequestType] = useState<'reenvio' | 'correcao' | 'outros'>('reenvio');
   const [requestDescription, setRequestDescription] = useState("");
   const [correctionName, setCorrectionName] = useState("");
+  const [isSubmittingCertRequest, setIsSubmittingCertRequest] = useState(false);
+  const [certRequestError, setCertRequestError] = useState('');
   
   // Login Form States
   const [email, setEmail] = useState('');
@@ -102,53 +106,94 @@ const UserDashboard: React.FC<UserDashboardProps> = ({
     setShowCertRequestModal(true);
   };
 
-  const handleSubmitCertRequest = (e: React.FormEvent) => {
+  const handleSubmitCertRequest = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    
-    // Mocking the submission logic
-    let finalReason = "";
-    if (requestType === 'reenvio') finalReason = "Solicitação de Reenvio (Perda/Não Recebimento)";
+    setIsSubmittingCertRequest(true);
+    setCertRequestError('');
+
+    let finalReason = '';
+    if (requestType === 'reenvio') finalReason = 'Solicitação de Reenvio (Perda/Não Recebimento)';
     else if (requestType === 'correcao') finalReason = `Correção de Nome para: ${correctionName}`;
     else finalReason = `Outros: ${requestDescription}`;
 
-    // Here you would typically make an API call to send this data to the Admin Dashboard
-    console.log("Enviando solicitação para Admin:", {
-      student: user?.name,
-      course: selectedCertForRequest?.title,
-      type: requestType,
-      reason: finalReason
-    });
+    try {
+      await recordFormSubmission('certificate_request', {
+        student: user?.name || 'Visitante',
+        email: user?.email || null,
+        course: selectedCertForRequest?.title || '',
+        request_type: requestType,
+        reason: finalReason,
+      });
 
-    alert(`Solicitação enviada com sucesso!\n\nMotivo: ${finalReason}\n\nNossa equipe analisará seu pedido em até 48h.`);
-    setShowCertRequestModal(false);
+      alert(`Solicitação enviada com sucesso!\n\nMotivo: ${finalReason}\n\nNossa equipe analisará seu pedido em até 48h.`);
+      setShowCertRequestModal(false);
+    } catch (error) {
+      console.error('Erro ao registrar solicitação de certificado', error);
+      setCertRequestError('Não foi possível enviar agora. Tente novamente.');
+    } finally {
+      setIsSubmittingCertRequest(false);
+    }
   };
 
   // Login Logic
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setTimeout(() => {
-      if (isRegistering) {
-        onLogin({
-          name: name || "Novo Usuário",
-          email: email,
-          avatar: BASE_MOCK_DATA.avatar
+
+    if (isRegistering) {
+      // Cadastro: gravar na tabela students
+      try {
+        await createStudent({
+          name: name.trim() || 'Novo Usuário',
+          email: email.trim(),
+          status: 'Ativo',
+          source: 'self-service',
         });
-      } else {
+
+        await recordFormSubmission('user_login', {
+          mode: 'register',
+          email: email.trim(),
+          name: name.trim() || null,
+        });
+
+        setTimeout(() => {
+          onLogin({
+            name: name || 'Novo Usuário',
+            email: email,
+            avatar: BASE_MOCK_DATA.avatar,
+          });
+        }, 800);
+      } catch (error) {
+        console.error('Erro ao cadastrar aluno', error);
+        alert('Não foi possível concluir seu cadastro. Tente novamente.');
+      }
+    } else {
+      // Login: apenas registrar acesso
+      try {
+        await recordFormSubmission('user_login', {
+          mode: 'login',
+          email: email.trim(),
+          name: name.trim() || null,
+        });
+      } catch (error) {
+        console.error('Erro ao registrar acesso do aluno', error);
+      }
+
+      setTimeout(() => {
         if (email.toLowerCase() === 'email@gmail.com') {
           onLogin({
-            name: "Palhacito",
-            email: "email@gmail.com",
-            avatar: "https://i.imgur.com/l2VarrP.jpeg" 
+            name: 'Palhacito',
+            email: 'email@gmail.com',
+            avatar: 'https://i.imgur.com/l2VarrP.jpeg',
           });
         } else {
           onLogin({
-            name: "Usuário Demo",
+            name: 'Usuário Demo',
             email: email,
-            avatar: BASE_MOCK_DATA.avatar
+            avatar: BASE_MOCK_DATA.avatar,
           });
         }
-      }
-    }, 800);
+      }, 800);
+    }
   };
 
   const openRatingModal = (course: Course) => {
@@ -872,10 +917,15 @@ const UserDashboard: React.FC<UserDashboardProps> = ({
 
               <button 
                 type="submit"
-                className="w-full bg-[#9A0000] text-white py-4 rounded-xl font-bold hover:bg-[#7a0000] transition-all shadow-lg flex items-center justify-center gap-2 mt-2"
+                disabled={isSubmittingCertRequest}
+                className="w-full bg-[#9A0000] text-white py-4 rounded-xl font-bold hover:bg-[#7a0000] transition-all shadow-lg flex items-center justify-center gap-2 mt-2 disabled:opacity-60"
               >
-                Enviar Solicitação <Send size={18} />
+                {isSubmittingCertRequest ? 'Enviando...' : 'Enviar Solicitação'}
+                {!isSubmittingCertRequest && <Send size={18} />}
               </button>
+              {certRequestError && (
+                <p className="text-center text-sm text-red-600 font-semibold">{certRequestError}</p>
+              )}
             </form>
           </div>
         </div>

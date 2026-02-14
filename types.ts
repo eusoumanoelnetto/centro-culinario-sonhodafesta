@@ -40,3 +40,17 @@ export interface BlogPost {
   author: string;
   readTime: string;
 }
+
+export interface Student {
+  id: string;
+  clientId: string;
+  name: string;
+  email: string;
+  whatsapp?: string | null;
+  status?: string | null;
+  course?: string | null;
+  source?: 'admin' | 'self-service' | null;
+  leadTag?: string | null;
+  lastContact?: string | null;
+  createdAt?: string | null;
+}

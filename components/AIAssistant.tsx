@@ -2,10 +2,13 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { MessageCircle, X, Send, Sparkles, User, Phone, ArrowRight, Lock } from 'lucide-react';
 import { getPartyAdvice } from '../services/gemini';
+import { recordFormSubmission } from '../services/formSubmissions';
 
 const AIAssistant: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [isLeadCaptured, setIsLeadCaptured] = useState(false);
+  const [leadError, setLeadError] = useState('');
+  const [isLeadSubmitting, setIsLeadSubmitting] = useState(false);
   
   // Lead Form State
   const [leadName, setLeadName] = useState('');
@@ -24,19 +27,31 @@ const AIAssistant: React.FC = () => {
     }
   }, [messages, isLeadCaptured]);
 
-  const handleLeadSubmit = (e: React.FormEvent) => {
+  const handleLeadSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (leadName.trim() && leadPhone.trim()) {
+    if (!leadName.trim() || !leadPhone.trim()) return;
+
+    setLeadError('');
+    setIsLeadSubmitting(true);
+
+    try {
+      await recordFormSubmission('ai_lead', {
+        name: leadName.trim(),
+        phone: leadPhone.trim(),
+      });
+
       setIsLeadCaptured(true);
-      // Initialize chat with personalized greeting
       setMessages([
-        { 
-          role: 'bot', 
-          text: `Olá ${leadName.split(' ')[0]}! Sou a Nina, assistente da Sonho da Festa. Vi que você tem interesse em nossos cursos. Como posso te ajudar hoje?` 
-        }
+        {
+          role: 'bot',
+          text: `Olá ${leadName.split(' ')[0]}! Sou a Nina, assistente da Sonho da Festa. Vi que você tem interesse em nossos cursos. Como posso te ajudar hoje?`,
+        },
       ]);
-      // Here you would typically send the lead data to your backend
-      console.log("Lead Capturado:", { name: leadName, phone: leadPhone });
+    } catch (error) {
+      console.error('Erro ao registrar lead da IA', error);
+      setLeadError('Não foi possível iniciar agora. Tente novamente.');
+    } finally {
+      setIsLeadSubmitting(false);
     }
   };
 
@@ -128,11 +143,16 @@ const AIAssistant: React.FC = () => {
 
                  <button 
                    type="submit" 
-                   className="w-full bg-[#d20000] hover:bg-[#b00000] text-white font-bold py-3.5 rounded-xl transition-all shadow-lg shadow-red-200 flex items-center justify-center gap-2 group mt-2"
+                   className="w-full bg-[#d20000] hover:bg-[#b00000] text-white font-bold py-3.5 rounded-xl transition-all shadow-lg shadow-red-200 flex items-center justify-center gap-2 group mt-2 disabled:opacity-60"
+                   disabled={isLeadSubmitting}
                  >
-                   Iniciar Chat
-                   <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
+                   {isLeadSubmitting ? 'Conectando...' : 'Iniciar Chat'}
+                   {!isLeadSubmitting && <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />}
                  </button>
+
+                 {leadError && (
+                   <p className="text-center text-xs text-red-600 font-semibold">{leadError}</p>
+                 )}
                </form>
 
                <div className="mt-6 text-center">

@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { ArrowLeft, Phone, Mail, MapPin, MessageCircle, Clock, Send, ChevronDown, ChevronUp, ExternalLink, HelpCircle } from 'lucide-react';
-import { supabase, CLIENT_ID } from '../services/supabase';
+import { recordFormSubmission } from '../services/formSubmissions';
 
 interface ContactProps {
   onBack: () => void;
@@ -68,16 +68,39 @@ const FAQS = [
 const Contact: React.FC<ContactProps> = ({ onBack }) => {
   const [selectedStore, setSelectedStore] = useState(STORES[0]);
   const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(null);
-  const [formStatus, setFormStatus] = useState<'idle' | 'sending' | 'sent'>('idle');
+  const [formStatus, setFormStatus] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle');
+  const [formError, setFormError] = useState('');
 
   const handleFaqClick = (index: number) => {
     setOpenFaqIndex(openFaqIndex === index ? null : index);
   };
 
-  const handleFormSubmit = (e: React.FormEvent) => {
+  const handleFormSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setFormStatus('sending');
-    setTimeout(() => setFormStatus('sent'), 1500);
+    setFormError('');
+
+    const form = e.currentTarget;
+    const data = new FormData(form);
+
+    const payload = {
+      name: data.get('name')?.toString().trim() || '',
+      phone: data.get('phone')?.toString().trim() || '',
+      email: data.get('email')?.toString().trim() || '',
+      subject: data.get('subject')?.toString().trim() || '',
+      message: data.get('message')?.toString().trim() || '',
+      preferred_store: selectedStore?.id || null,
+    };
+
+    try {
+      await recordFormSubmission('contact', payload);
+      form.reset();
+      setFormStatus('sent');
+    } catch (error) {
+      console.error('Erro ao enviar contato', error);
+      setFormError('Não foi possível enviar a mensagem. Tente novamente em instantes.');
+      setFormStatus('error');
+    }
   };
 
   return (
@@ -268,6 +291,7 @@ const Contact: React.FC<ContactProps> = ({ onBack }) => {
                       <input 
                         required
                         type="text" 
+                        name="name"
                         placeholder="Nome completo"
                         className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-[#9A0000] focus:ring-1 focus:ring-[#9A0000] focus:outline-none transition-all bg-gray-50 focus:bg-white text-gray-900"
                       />
@@ -277,6 +301,7 @@ const Contact: React.FC<ContactProps> = ({ onBack }) => {
                       <input 
                         required
                         type="tel" 
+                        name="phone"
                         placeholder="(21) 99999-9999"
                         className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-[#9A0000] focus:ring-1 focus:ring-[#9A0000] focus:outline-none transition-all bg-gray-50 focus:bg-white text-gray-900"
                       />
@@ -288,6 +313,7 @@ const Contact: React.FC<ContactProps> = ({ onBack }) => {
                     <input 
                       required
                       type="email" 
+                      name="email"
                       placeholder="seu@email.com"
                       className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-[#9A0000] focus:ring-1 focus:ring-[#9A0000] focus:outline-none transition-all bg-gray-50 focus:bg-white text-gray-900"
                     />
@@ -295,7 +321,7 @@ const Contact: React.FC<ContactProps> = ({ onBack }) => {
 
                   <div className="space-y-1">
                     <label className="text-xs font-bold text-gray-700 ml-1">Assunto</label>
-                    <select className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-[#9A0000] focus:ring-1 focus:ring-[#9A0000] focus:outline-none transition-all bg-gray-50 focus:bg-white text-gray-900 appearance-none">
+                    <select name="subject" className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-[#9A0000] focus:ring-1 focus:ring-[#9A0000] focus:outline-none transition-all bg-gray-50 focus:bg-white text-gray-900 appearance-none">
                       <option>Dúvidas sobre Cursos</option>
                       <option>Problemas com Pedido (Loja Virtual)</option>
                       <option>Quero ser Parceiro/Professor</option>
@@ -308,10 +334,15 @@ const Contact: React.FC<ContactProps> = ({ onBack }) => {
                     <textarea 
                       required
                       rows={4}
+                      name="message"
                       placeholder="Como podemos ajudar?"
                       className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-[#9A0000] focus:ring-1 focus:ring-[#9A0000] focus:outline-none transition-all bg-gray-50 focus:bg-white resize-none text-gray-900"
                     ></textarea>
                   </div>
+
+                  {formStatus === 'error' && (
+                    <p className="text-sm text-red-600 font-medium text-center">{formError}</p>
+                  )}
 
                   <button 
                     type="submit"

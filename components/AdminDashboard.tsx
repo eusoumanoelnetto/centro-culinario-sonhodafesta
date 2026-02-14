@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
   ArrowLeft, Plus, BookOpen, GraduationCap, Save, X, CheckCircle2, 
   Image as ImageIcon, Layout, FileText, DollarSign, Calendar, User, 
@@ -9,8 +9,10 @@ import {
   Megaphone, UserPlus, Zap, Ban, UserCheck, BarChart3, AlertTriangle, BellRing, ArrowRight, PenTool,
   TrendingUp, PieChart, Wallet, Send, ChevronRight, Crown, Trophy, MoreHorizontal, MapPin, Store, CalendarDays
 } from 'lucide-react';
-import { Course, BlogPost } from '../types';
+import { Course, BlogPost, Student } from '../types';
 import { COURSES, BLOG_POSTS } from '../constants';
+import { recordFormSubmission } from '../services/formSubmissions';
+import { listStudents, createStudent, updateStudent, deleteStudent } from '../services/students';
 
 interface AdminDashboardProps {
   onBack: () => void;
@@ -46,16 +48,6 @@ interface AdminCourse extends Course {
 // Senha ofuscada "Sonho2412@#!"
 const OBFUSCATED_SECRET = "czBuaDBTb25obzI0MTJAIyE=";
 
-// --- DADOS MOCKADOS ENRIQUECIDOS PARA CRM ---
-const MOCK_STUDENTS = [
-  { id: 1, name: 'Ana Beatriz Souza', email: 'ana.bia@gmail.com', whatsapp: '(21) 99888-7766', status: 'Ativo', course: 'Bolo no Pote: Lucre o Ano Todo', leadTag: 'VIP', lastContact: '2 dias atrás' },
-  { id: 2, name: 'Carlos Eduardo', email: 'carlos.edu@hotmail.com', whatsapp: '(21) 99777-6655', status: 'Pendente', course: 'Confeitaria Básica', leadTag: 'Novo', lastContact: 'Nunca' },
-  { id: 3, name: 'Fernanda Lima', email: 'fefelima@gmail.com', whatsapp: '(21) 99666-5544', status: 'Concluído', course: 'Ovos de Páscoa em Pé (Cacau Foods)', leadTag: 'Fã', lastContact: '1 mês atrás' },
-  { id: 4, name: 'Juliana Paes', email: 'juju@globo.com', whatsapp: '(21) 99555-4433', status: 'Cancelado', course: 'Festival dos Salgados Fritos', leadTag: 'Sumido', lastContact: '3 meses atrás' },
-  { id: 5, name: 'Roberto Carlos', email: 'roberto@email.com', whatsapp: '(21) 99111-2222', status: 'Ativo', course: 'Bolo no Pote: Lucre o Ano Todo', leadTag: 'Recorrente', lastContact: '5 dias atrás' },
-  { id: 6, name: 'Patricia Poeta', email: 'patricia@email.com', whatsapp: '(21) 99333-4444', status: 'Cancelado', course: 'Bolo no Pote: Lucre o Ano Todo', leadTag: 'Oportunidade', lastContact: '1 semana atrás' },
-];
-
 const MOCK_TEACHERS = [
   { id: 1, name: 'Claudia Thomaz', specialty: 'Confeitaria Artística', instagram: '@claudiathomaz_cake', image: 'https://images.unsplash.com/photo-1577219491135-ce391730fb2c?auto=format&fit=crop&q=80&w=200' },
   { id: 2, name: 'Luan Gomes', specialty: 'Panificação e Salgados', instagram: '@chefluangomes', image: 'https://images.unsplash.com/photo-1583394838336-acd977736f90?auto=format&fit=crop&q=80&w=200' },
@@ -87,10 +79,37 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
   const [isSuccess, setIsSuccess] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
 
-  // Data States (Simulando banco de dados local)
-  const [studentsList, setStudentsList] = useState(MOCK_STUDENTS);
+  // Data States
+  const [studentsList, setStudentsList] = useState<Student[]>([]);
   const [teachersList, setTeachersList] = useState(MOCK_TEACHERS);
+  const [isLoadingStudents, setIsLoadingStudents] = useState(false);
+  const [studentsError, setStudentsError] = useState<string | null>(null);
+
+  const loadStudents = useCallback(async () => {
+    if (!isAuthenticated) {
+      setStudentsList([]);
+      setStudentsError(null);
+      return;
+    }
+
+    setIsLoadingStudents(true);
+    setStudentsError(null);
+
+    try {
+      const data = await listStudents();
+      setStudentsList(data);
+    } catch (error) {
+      console.error('Erro ao carregar alunos', error);
+      setStudentsError('Não foi possível carregar os alunos. Tente novamente.');
+    } finally {
+      setIsLoadingStudents(false);
+    }
+  }, [isAuthenticated]);
   
+  useEffect(() => {
+    loadStudents();
+  }, [loadStudents]);
+
   // Inicializa cursos com dados aleatórios de vendas e LOCALIZAÇÃO para demonstração
   const [coursesList, setCoursesList] = useState<AdminCourse[]>(() => {
     const locations = ['Bangu', 'Campo Grande', 'Duque de Caxias'] as const;
@@ -115,7 +134,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
 
   // Certificação States
   const [selectedCertCourse, setSelectedCertCourse] = useState<string>("");
-  const [selectedStudentsForCert, setSelectedStudentsForCert] = useState<number[]>([]);
+  const [selectedStudentsForCert, setSelectedStudentsForCert] = useState<string[]>([]);
   const [certificateFile, setCertificateFile] = useState<File | null>(null);
   const [isSendingCerts, setIsSendingCerts] = useState(false);
   
@@ -138,25 +157,35 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
 
   // --- Security Logic ---
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsCheckingAuth(true);
     setAuthError(false);
-    setTimeout(() => {
-      try {
-        const salt = "s0nh0";
-        const inputHash = btoa(salt + passwordInput);
-        if (inputHash === OBFUSCATED_SECRET) {
-          setIsAuthenticated(true);
-        } else {
-          setAuthError(true);
+
+    const isValid = await new Promise<boolean>((resolve) => {
+      setTimeout(() => {
+        try {
+          const salt = 's0nh0';
+          const inputHash = btoa(salt + passwordInput);
+          resolve(inputHash === OBFUSCATED_SECRET);
+        } catch (error) {
+          resolve(false);
         }
-      } catch (error) {
-        setAuthError(true);
-      } finally {
-        setIsCheckingAuth(false);
-      }
-    }, 800);
+      }, 800);
+    });
+
+    setIsCheckingAuth(false);
+    setAuthError(!isValid);
+    setIsAuthenticated(isValid);
+
+    try {
+      await recordFormSubmission('admin_login', {
+        success: isValid,
+        input_length: passwordInput.length,
+      });
+    } catch (error) {
+      console.error('Erro ao registrar acesso administrativo', error);
+    }
   };
 
   // --- CRM / Students Logic ---
@@ -165,7 +194,11 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
     return studentsList.filter(s => s.status === studentFilter);
   };
 
-  const handleWhatsappClick = (student: typeof MOCK_STUDENTS[0]) => {
+  const handleWhatsappClick = (student: Student) => {
+    if (!student.whatsapp) {
+      alert('Este aluno não possui número de WhatsApp cadastrado.');
+      return;
+    }
     const message = `Olá ${student.name.split(' ')[0]}! Tudo bem?`;
     const num = student.whatsapp.replace(/\D/g, '');
     window.open(`https://wa.me/55${num}?text=${encodeURIComponent(message)}`, '_blank');
@@ -191,7 +224,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
     }
   };
 
-  const toggleCertStudent = (studentId: number) => {
+  const toggleCertStudent = (studentId: string) => {
     setSelectedStudentsForCert(prev => {
       if (prev.includes(studentId)) {
         return prev.filter(id => id !== studentId);
@@ -423,7 +456,13 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
         capacity: c.capacity.toString()
       });
     } else if (type === 'student') {
-      setStudentData({ name: item.name, email: item.email, whatsapp: item.whatsapp || '', status: item.status, course: item.course });
+      setStudentData({
+        name: item.name,
+        email: item.email,
+        whatsapp: item.whatsapp || '',
+        status: item.status || 'Ativo',
+        course: item.course || '',
+      });
     } else if (type === 'teacher') {
       setTeacherData({ name: item.name, specialty: item.specialty, instagram: item.instagram });
     } else if (type === 'blog') {
@@ -432,13 +471,29 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
     setViewMode('form');
   };
 
-  const handleDelete = (id: string | number, type: 'course' | 'student' | 'teacher' | 'blog') => {
-    if (confirm("Tem certeza que deseja excluir este item?")) {
-      if (type === 'course') setCoursesList(prev => prev.filter(c => c.id !== id));
-      else if (type === 'student') setStudentsList(prev => prev.filter(s => s.id !== id));
-      else if (type === 'teacher') setTeachersList(prev => prev.filter(t => t.id !== id));
-      else if (type === 'blog') setBlogList(prev => prev.filter(b => b.id !== id));
+  const handleDelete = async (id: string | number, type: 'course' | 'student' | 'teacher' | 'blog') => {
+    if (!confirm("Tem certeza que deseja excluir este item?")) {
+      return;
+    }
+
+    try {
+      if (type === 'course') {
+        setCoursesList(prev => prev.filter(c => c.id !== id));
+      } else if (type === 'student') {
+        const studentId = typeof id === 'string' ? id : String(id);
+        await deleteStudent(studentId);
+        await loadStudents();
+        setSelectedStudentsForCert(prev => prev.filter(existingId => existingId !== studentId));
+      } else if (type === 'teacher') {
+        setTeachersList(prev => prev.filter(t => t.id !== id));
+      } else if (type === 'blog') {
+        setBlogList(prev => prev.filter(b => b.id !== id));
+      }
+
       showSuccess("Item excluído com sucesso!");
+    } catch (error) {
+      console.error('Erro ao excluir registro', error);
+      alert('Não foi possível excluir este registro. Tente novamente.');
     }
   };
 
@@ -446,12 +501,86 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
     showSuccess(`Certificado enviado para ${studentName}!`);
   };
 
-  const handleSave = (e: React.FormEvent) => {
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    const basePayload = {
+      section: activeTab,
+      mode: editingId ? 'update' : 'create',
+    };
+
+    let payload: Record<string, any> | null = null;
+    let successMessage = activeTab === 'courses' ? 'Dados salvos com sucesso!' : 'Registro atualizado com sucesso!';
+
     if (activeTab === 'courses') {
-        showSuccess("Dados salvos com sucesso!");
-    } 
-    setTimeout(() => setViewMode('list'), 1000);
+      payload = {
+        ...basePayload,
+        data: courseData,
+        has_image: Boolean(uploadedImage),
+      };
+    } else if (activeTab === 'students') {
+      const normalizedStatus = (studentData.status || 'Ativo').trim() || 'Ativo';
+      const normalizedCourse = studentData.course.trim();
+      const studentPayload = {
+        name: studentData.name.trim(),
+        email: studentData.email.trim(),
+        whatsapp: studentData.whatsapp?.trim() || undefined,
+        status: normalizedStatus,
+        course: normalizedCourse ? normalizedCourse : undefined,
+        source: 'admin' as const,
+      };
+
+      if (!studentPayload.name || !studentPayload.email) {
+        alert('Informe nome e e-mail do aluno.');
+        return;
+      }
+
+      payload = {
+        ...basePayload,
+        data: studentPayload,
+      };
+
+      try {
+        if (editingId) {
+          await updateStudent(String(editingId), studentPayload);
+          successMessage = 'Aluno atualizado com sucesso!';
+        } else {
+          await createStudent(studentPayload);
+          successMessage = 'Aluno cadastrado com sucesso!';
+        }
+
+        await loadStudents();
+        setStudentData({ name: '', email: '', whatsapp: '', status: 'Ativo', course: '' });
+        setEditingId(null);
+      } catch (error) {
+        console.error('Erro ao salvar aluno', error);
+        alert('Não foi possível salvar o aluno. Tente novamente.');
+        return;
+      }
+    } else if (activeTab === 'teachers') {
+      payload = {
+        ...basePayload,
+        data: teacherData,
+      };
+    } else if (activeTab === 'blog') {
+      payload = {
+        ...basePayload,
+        data: blogData,
+      };
+    }
+
+    try {
+      if (payload) {
+        await recordFormSubmission('admin_record', payload);
+      }
+
+      showSuccess(successMessage);
+
+      setTimeout(() => setViewMode('list'), 1000);
+    } catch (error) {
+      console.error('Erro ao registrar alteração administrativa', error);
+      alert('Não foi possível registrar essa alteração no Supabase. Revise e tente novamente.');
+    }
   };
 
   const showSuccess = (msg: string) => {
@@ -1013,70 +1142,119 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
 
         {/* Students Table */}
         <div className="overflow-x-auto bg-white rounded-2xl border border-gray-100 shadow-sm">
-          <table className="w-full text-left border-collapse">
-            <thead className="bg-gray-50">
-              <tr className="border-b border-gray-100 text-xs font-bold text-gray-500 uppercase tracking-wider">
-                <th className="p-4">Aluno / Lead</th>
-                <th className="p-4">Status</th>
-                <th className="p-4">Último Curso</th>
-                <th className="p-4">Contato</th>
-                <th className="p-4 text-right">Ações</th>
-              </tr>
-            </thead>
-            <tbody className="text-sm text-gray-700">
-              {students.map(student => (
-                <tr key={student.id} className="border-b border-gray-50 hover:bg-gray-50 transition-colors">
-                  {/* ... (Existing Student Row) ... */}
-                   <td className="p-4">
-                    <div className="flex flex-col">
-                      <span className="font-bold text-gray-900">{student.name}</span>
-                      <div className="flex items-center gap-2 mt-1">
-                        <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase ${
-                          student.leadTag === 'VIP' ? 'bg-[#fff304] text-[#9A0000]' :
-                          student.leadTag === 'Sumido' ? 'bg-red-100 text-red-600' :
-                          student.leadTag === 'Novo' ? 'bg-blue-100 text-blue-600' :
-                          'bg-gray-100 text-gray-500'
-                        }`}>
-                          {student.leadTag}
-                        </span>
-                        <span className="text-[10px] text-gray-400">Último: {student.lastContact}</span>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="p-4">
-                    <span className={`px-2 py-1 rounded text-xs font-bold flex items-center w-fit gap-1 ${
-                      student.status === 'Ativo' ? 'bg-green-100 text-green-700' : 
-                      student.status === 'Pendente' ? 'bg-yellow-100 text-yellow-700' : 
-                      student.status === 'Concluído' ? 'bg-blue-100 text-blue-700' :
-                      'bg-red-100 text-red-700'
-                    }`}>
-                      {student.status === 'Cancelado' && <Ban size={10} />}
-                      {student.status === 'Concluído' && <CheckCircle2 size={10} />}
-                      {student.status}
-                    </span>
-                  </td>
-                  <td className="p-4 max-w-xs truncate" title={student.course}>{student.course}</td>
-                  <td className="p-4">
-                    <button 
-                      onClick={() => handleWhatsappClick(student)}
-                      className="flex items-center gap-2 text-green-600 font-bold hover:bg-green-50 px-3 py-1.5 rounded-lg transition-colors border border-green-100"
-                      title="Enviar mensagem personalizada"
-                    >
-                      <MessageCircle size={16} /> 
-                      <span className="hidden xl:inline">Chamar</span>
-                    </button>
-                  </td>
-                  <td className="p-4 text-right">
-                    <div className="flex justify-end gap-2">
-                      <button onClick={() => handleSendCertificate(student.name)} className="p-2 text-yellow-600 hover:bg-yellow-50 rounded-lg" title="Enviar Certificado"><Award size={16} /></button>
-                      <button onClick={() => handleEdit(student, 'student')} className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg" title="Editar"><Edit size={16} /></button>
-                      <button onClick={() => handleDelete(student.id, 'student')} className="p-2 text-red-600 hover:bg-red-50 rounded-lg" title="Excluir"><Trash2 size={16} /></button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          {studentsError ? (
+            <div className="p-8 text-center text-sm text-red-600">
+              <p>{studentsError}</p>
+              <button
+                onClick={loadStudents}
+                className="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-red-200 text-red-600 font-bold hover:bg-red-50 transition-colors"
+              >
+                <RefreshCw size={16} /> Tentar novamente
+              </button>
+            </div>
+          ) : students.length === 0 ? (
+            <div className="p-12 text-center text-sm text-gray-500 flex flex-col items-center gap-4">
+              {isLoadingStudents ? (
+                <div className="flex items-center gap-2 text-[#9A0000] font-bold">
+                  <Loader2 size={20} className="animate-spin" /> Carregando alunos...
+                </div>
+              ) : (
+                <>
+                  <p>Nenhum aluno cadastrado ainda.</p>
+                  <button
+                    onClick={handleAddNew}
+                    className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-[#9A0000] text-white font-bold hover:bg-[#7a0000] transition-colors"
+                  >
+                    <UserPlus size={16} /> Cadastrar primeiro aluno
+                  </button>
+                </>
+              )}
+            </div>
+          ) : (
+            <>
+              {isLoadingStudents && (
+                <div className="flex items-center gap-2 px-4 py-3 text-xs text-gray-500 border-b border-gray-100 bg-gray-50">
+                  <Loader2 size={14} className="animate-spin" /> Atualizando lista de alunos...
+                </div>
+              )}
+              <table className="w-full text-left border-collapse">
+                <thead className="bg-gray-50">
+                  <tr className="border-b border-gray-100 text-xs font-bold text-gray-500 uppercase tracking-wider">
+                    <th className="p-4">Aluno / Lead</th>
+                    <th className="p-4">Status</th>
+                    <th className="p-4">Último Curso</th>
+                    <th className="p-4">Contato</th>
+                    <th className="p-4 text-right">Ações</th>
+                  </tr>
+                </thead>
+                <tbody className="text-sm text-gray-700">
+                  {students.map(student => {
+                    const leadTag = student.leadTag || 'Novo';
+                    const lastContact = student.lastContact || 'Sem registro';
+                    const status = student.status || 'Pendente';
+                    const courseTitle = student.course || 'Sem curso';
+
+                    const leadTagClass = leadTag === 'VIP'
+                      ? 'bg-[#fff304] text-[#9A0000]'
+                      : leadTag === 'Sumido'
+                      ? 'bg-red-100 text-red-600'
+                      : leadTag === 'Novo'
+                      ? 'bg-blue-100 text-blue-600'
+                      : 'bg-gray-100 text-gray-500';
+
+                    const statusClass = status === 'Ativo'
+                      ? 'bg-green-100 text-green-700'
+                      : status === 'Pendente'
+                      ? 'bg-yellow-100 text-yellow-700'
+                      : status === 'Concluído'
+                      ? 'bg-blue-100 text-blue-700'
+                      : 'bg-red-100 text-red-700';
+
+                    return (
+                      <tr key={student.id} className="border-b border-gray-50 hover:bg-gray-50 transition-colors">
+                        <td className="p-4">
+                          <div className="flex flex-col">
+                            <span className="font-bold text-gray-900">{student.name}</span>
+                            <div className="flex items-center gap-2 mt-1">
+                              <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase ${leadTagClass}`}>
+                                {leadTag}
+                              </span>
+                              <span className="text-[10px] text-gray-400">Último: {lastContact}</span>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="p-4">
+                          <span className={`px-2 py-1 rounded text-xs font-bold flex items-center w-fit gap-1 ${statusClass}`}>
+                            {status === 'Cancelado' && <Ban size={10} />}
+                            {status === 'Concluído' && <CheckCircle2 size={10} />}
+                            {status}
+                          </span>
+                        </td>
+                        <td className="p-4 max-w-xs truncate" title={courseTitle}>{courseTitle}</td>
+                        <td className="p-4">
+                          <button
+                            onClick={() => handleWhatsappClick(student)}
+                            className="flex items-center gap-2 text-green-600 font-bold hover:bg-green-50 px-3 py-1.5 rounded-lg transition-colors border border-green-100"
+                            title="Enviar mensagem personalizada"
+                          >
+                            <MessageCircle size={16} />
+                            <span className="hidden xl:inline">Chamar</span>
+                          </button>
+                        </td>
+                        <td className="p-4 text-right">
+                          <div className="flex justify-end gap-2">
+                            <button onClick={() => handleSendCertificate(student.name)} className="p-2 text-yellow-600 hover:bg-yellow-50 rounded-lg" title="Enviar Certificado"><Award size={16} /></button>
+                            <button onClick={() => handleEdit(student, 'student')} className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg" title="Editar"><Edit size={16} /></button>
+                            <button onClick={() => handleDelete(student.id, 'student')} className="p-2 text-red-600 hover:bg-red-50 rounded-lg" title="Excluir"><Trash2 size={16} /></button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </>
+          )}
         </div>
       </>
     );
