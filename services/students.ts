@@ -91,7 +91,7 @@ export async function createStudent(input: StudentInput): Promise<Student> {
 
   const { data, error } = await supabase
     .from(STUDENTS_TABLE)
-    .upsert(payload, { onConflict: 'client_id,email', ignoreDuplicates: false, returning: 'representation' })
+    .insert(payload)
     .select('*')
     .single()
 

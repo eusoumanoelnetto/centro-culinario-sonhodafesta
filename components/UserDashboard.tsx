@@ -156,7 +156,7 @@ const UserDashboard: React.FC<UserDashboardProps> = ({
       }
 
       try {
-        await createStudent({
+        const newStudent = await createStudent({
           name: name.trim() || 'Novo Usuário',
           email: email.trim(),
           password: password.trim(),
@@ -171,9 +171,11 @@ const UserDashboard: React.FC<UserDashboardProps> = ({
           name: name.trim() || null,
         });
 
+        setStudentId(newStudent.id);
+        
         onLogin({
-          name: name || 'Novo Usuário',
-          email: email,
+          name: newStudent.name,
+          email: newStudent.email,
           avatar: BASE_MOCK_DATA.avatar,
         });
       } catch (error) {
@@ -215,6 +217,8 @@ const UserDashboard: React.FC<UserDashboardProps> = ({
         }
 
         // Login normal
+        setStudentId(student.id);
+        
         onLogin({
           name: student.name,
           email: student.email,

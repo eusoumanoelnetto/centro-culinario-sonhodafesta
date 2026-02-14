@@ -38,6 +38,33 @@ create table if not exists public.students (
 
 create unique index if not exists students_client_email_idx
   on public.students (client_id, email);
+
+-- Enable Row Level Security
+alter table public.students enable row level security;
+
+-- Policy: Anyone can insert (self-registration)
+drop policy if exists "Allow public insert" on public.students;
+create policy "Allow public insert" on public.students
+  for insert
+  with check (true);
+
+-- Policy: Anyone can read (for login/authentication)
+drop policy if exists "Allow public select" on public.students;
+create policy "Allow public select" on public.students
+  for select
+  using (true);
+
+-- Policy: Anyone can update (for password changes)
+drop policy if exists "Allow public update" on public.students;
+create policy "Allow public update" on public.students
+  for update
+  using (true);
+
+-- Policy: Only service_role can delete
+drop policy if exists "Allow service_role delete" on public.students;
+create policy "Allow service_role delete" on public.students
+  for delete
+  using (auth.role() = 'service_role');
 `
 
 async function setupStudents() {
