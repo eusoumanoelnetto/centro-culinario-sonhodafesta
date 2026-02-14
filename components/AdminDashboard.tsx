@@ -12,7 +12,8 @@ import {
 import { Course, BlogPost, Student } from '../types';
 import { COURSES, BLOG_POSTS } from '../constants';
 import { recordFormSubmission } from '../services/formSubmissions';
-import { listStudents, createStudent, updateStudent, deleteStudent } from '../services/students';
+import { listStudents, createStudent, updateStudent, deleteStudent, updatePassword } from '../services/students';
+import { supabase, CLIENT_ID } from '../services/supabase';
 import Modal from './Modal';
 
 interface AdminDashboardProps {
@@ -37,6 +38,16 @@ interface CertRequest {
   courseTitle: string;
   dateRequest: string;
   reason: string;
+}
+
+interface AdminRequest {
+  id: string;
+  type: 'password_reset_request' | 'data_change_request' | 'certificate_request';
+  email: string;
+  message: string;
+  createdAt: string;
+  courseTitle?: string;
+  requestType?: string;
 }
 
 // Extensão da interface Course para incluir dados de vendas e Localização (Mock)
@@ -111,6 +122,59 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
     loadStudents();
   }, [loadStudents]);
 
+  const loadAdminRequests = useCallback(async () => {
+    if (!isAuthenticated) {
+      setAdminRequests([]);
+      setRequestsError(null);
+      return;
+    }
+
+    setIsLoadingRequests(true);
+    setRequestsError(null);
+
+    try {
+      const { data, error } = await supabase
+        .from('form_submissions')
+        .select('id, form_type, payload, created_at')
+        .eq('client_id', CLIENT_ID)
+        .in('form_type', ['password_reset_request', 'data_change_request', 'certificate_request'])
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        throw error;
+      }
+
+      const mapped = (data || []).map((row: any) => {
+        const payload = row.payload || {};
+        const message =
+          row.form_type === 'certificate_request'
+            ? `Curso: ${payload.courseTitle || 'N/A'} | Motivo: ${payload.requestDescription || 'N/A'}`
+            : payload.message || payload.note || 'Sem detalhes';
+
+        return {
+          id: row.id,
+          type: row.form_type,
+          email: payload.email || payload.studentEmail || 'Nao informado',
+          message,
+          createdAt: row.created_at,
+          courseTitle: payload.courseTitle,
+          requestType: payload.requestType,
+        } as AdminRequest;
+      });
+
+      setAdminRequests(mapped);
+    } catch (error) {
+      console.error('Erro ao carregar solicitacoes', error);
+      setRequestsError('Nao foi possivel carregar as solicitacoes.');
+    } finally {
+      setIsLoadingRequests(false);
+    }
+  }, [isAuthenticated]);
+
+  useEffect(() => {
+    loadAdminRequests();
+  }, [loadAdminRequests]);
+
   // Inicializa cursos com dados aleatórios de vendas e LOCALIZAÇÃO para demonstração
   const [coursesList, setCoursesList] = useState<AdminCourse[]>(() => {
     const locations = ['Bangu', 'Campo Grande', 'Duque de Caxias'] as const;
@@ -125,6 +189,10 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
   const [blogList, setBlogList] = useState(BLOG_POSTS);
   const [certHistory, setCertHistory] = useState<CertificateLog[]>(MOCK_CERT_HISTORY);
   const [certRequests, setCertRequests] = useState<CertRequest[]>(MOCK_PENDING_REQUESTS);
+  const [adminRequests, setAdminRequests] = useState<AdminRequest[]>([]);
+  const [isLoadingRequests, setIsLoadingRequests] = useState(false);
+  const [requestsError, setRequestsError] = useState<string | null>(null);
+  const pendingRequestsCount = certRequests.length + adminRequests.length;
 
   // Filter States
   const [studentFilter, setStudentFilter] = useState<'Todos' | 'Ativo' | 'Cancelado' | 'Concluído'>('Todos');
@@ -292,6 +360,29 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
     const isCorrection = reasonLower.includes('nome') || reasonLower.includes('erro') || reasonLower.includes('incorreto');
     setIsNameCorrection(isCorrection);
     setCorrectionName(request.studentName); 
+  };
+
+  const handleResetPasswordToCpf = async (email: string, requestId: string) => {
+    const student = studentsList.find(s => s.email?.toLowerCase() === email.toLowerCase());
+
+    if (!student) {
+      setModal({ isOpen: true, type: 'error', message: 'Aluno nao encontrado pelo e-mail informado.' });
+      return;
+    }
+
+    if (!student.cpf) {
+      setModal({ isOpen: true, type: 'error', message: 'CPF nao cadastrado para este aluno.' });
+      return;
+    }
+
+    try {
+      await updatePassword(student.id, student.cpf);
+      setModal({ isOpen: true, type: 'success', message: 'Senha resetada para o CPF com sucesso!' });
+      setAdminRequests(prev => prev.filter(req => req.id !== requestId));
+    } catch (error) {
+      console.error('Erro ao resetar senha', error);
+      setModal({ isOpen: true, type: 'error', message: 'Nao foi possivel resetar a senha.' });
+    }
   };
 
   const handleFinalizeResolve = () => {
@@ -1445,8 +1536,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
                 >
                   <Award size={20} />
                   <span className="flex-1">Certificação</span>
-                  {certRequests.length > 0 && (
-                    <span className="bg-red-500 text-white text-[10px] px-1.5 py-0.5 rounded-full animate-pulse">{certRequests.length}</span>
+                  {pendingRequestsCount > 0 && (
+                    <span className="bg-red-500 text-white text-[10px] px-1.5 py-0.5 rounded-full animate-pulse">{pendingRequestsCount}</span>
                   )}
                 </button>
               </div>
@@ -1508,6 +1599,73 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
                   {/* CERTIFICATES SECTION */}
                   {activeTab === 'certificates' && (
                     <div className="animate-in fade-in duration-300">
+
+                      {/* SOLICITACOES */}
+                      <div className="bg-white border border-gray-200 rounded-2xl p-6 mb-8 shadow-sm">
+                        <div className="flex items-center justify-between mb-4">
+                          <h3 className="font-bold text-gray-800 flex items-center gap-2">
+                            <BellRing size={18} className="text-[#9A0000]" /> Solicitacoes
+                          </h3>
+                          <button
+                            onClick={loadAdminRequests}
+                            className="text-xs font-bold text-gray-600 hover:text-[#9A0000]"
+                          >
+                            Atualizar
+                          </button>
+                        </div>
+
+                        {requestsError && (
+                          <div className="text-sm text-red-600 bg-red-50 border border-red-100 p-3 rounded-xl">
+                            {requestsError}
+                          </div>
+                        )}
+
+                        {isLoadingRequests ? (
+                          <div className="text-sm text-gray-500 flex items-center gap-2">
+                            <Loader2 size={16} className="animate-spin" /> Carregando solicitacoes...
+                          </div>
+                        ) : adminRequests.length > 0 ? (
+                          <div className="space-y-3">
+                            {adminRequests.map(req => (
+                              <div key={req.id} className="bg-gray-50 p-4 rounded-xl border border-gray-100 flex flex-col md:flex-row gap-4 md:items-center md:justify-between">
+                                <div>
+                                  <div className="flex items-center gap-2 mb-1">
+                                    <span className="font-bold text-gray-800">{req.email}</span>
+                                    <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-[#fff304] text-[#9A0000]">
+                                      {req.type === 'password_reset_request'
+                                        ? 'Reset de senha'
+                                        : req.type === 'data_change_request'
+                                        ? 'Correcao de dados'
+                                        : 'Certificado'}
+                                    </span>
+                                    <span className="text-xs text-gray-400">{new Date(req.createdAt).toLocaleString('pt-BR')}</span>
+                                  </div>
+                                  <p className="text-sm text-gray-600">{req.message}</p>
+                                </div>
+                                <div className="flex gap-2">
+                                  {req.type === 'password_reset_request' ? (
+                                    <button
+                                      onClick={() => handleResetPasswordToCpf(req.email, req.id)}
+                                      className="bg-[#9A0000] text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-[#7a0000] transition-colors"
+                                    >
+                                      Resetar para CPF
+                                    </button>
+                                  ) : (
+                                    <button
+                                      onClick={() => setAdminRequests(prev => prev.filter(r => r.id !== req.id))}
+                                      className="bg-gray-800 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-gray-700 transition-colors"
+                                    >
+                                      Marcar como resolvido
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="text-sm text-gray-500">Nenhuma solicitacao pendente.</div>
+                        )}
+                      </div>
                       
                       {/* PENDING REQUESTS NOTIFICATION PANEL */}
                       {certRequests.length > 0 && (

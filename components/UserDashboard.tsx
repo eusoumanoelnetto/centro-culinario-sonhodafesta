@@ -113,6 +113,18 @@ const UserDashboard: React.FC<UserDashboardProps> = ({
   const [name, setName] = useState('');
   const [loginError, setLoginError] = useState('');
 
+  // Forgot Password Request States
+  const [showForgotModal, setShowForgotModal] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState('');
+  const [forgotWhatsapp, setForgotWhatsapp] = useState('');
+  const [forgotMessage, setForgotMessage] = useState('');
+  const [isSubmittingForgot, setIsSubmittingForgot] = useState(false);
+
+  // Data Change Request States
+  const [showDataChangeModal, setShowDataChangeModal] = useState(false);
+  const [dataChangeMessage, setDataChangeMessage] = useState('');
+  const [isSubmittingDataChange, setIsSubmittingDataChange] = useState(false);
+
   // Real Student Data (não mockado)
   const [enrolledCourses, setEnrolledCourses] = useState<Array<{
     course: Course;
@@ -341,6 +353,77 @@ const UserDashboard: React.FC<UserDashboardProps> = ({
     }
   };
 
+  const handleForgotPasswordRequest = async () => {
+    if (!forgotEmail.trim()) {
+      setModal({ isOpen: true, type: 'error', message: 'Informe o e-mail cadastrado.' });
+      return;
+    }
+
+    setIsSubmittingForgot(true);
+
+    try {
+      await recordFormSubmission('password_reset_request', {
+        email: forgotEmail.trim().toLowerCase(),
+        whatsapp: forgotWhatsapp.trim() || null,
+        message: forgotMessage.trim() || null,
+        requestedAt: new Date().toISOString(),
+      });
+
+      setModal({
+        isOpen: true,
+        type: 'success',
+        message: 'Solicitacao enviada! Em breve o admin vai resetar sua senha para o CPF.'
+      });
+
+      setShowForgotModal(false);
+      setForgotEmail('');
+      setForgotWhatsapp('');
+      setForgotMessage('');
+    } catch (error) {
+      console.error('Erro ao enviar solicitacao de senha', error);
+      setModal({ isOpen: true, type: 'error', message: 'Nao foi possivel enviar a solicitacao. Tente novamente.' });
+    } finally {
+      setIsSubmittingForgot(false);
+    }
+  };
+
+  const handleDataChangeRequest = async () => {
+    if (!user?.email) {
+      setModal({ isOpen: true, type: 'error', message: 'Nao foi possivel identificar seu e-mail.' });
+      return;
+    }
+
+    if (!dataChangeMessage.trim()) {
+      setModal({ isOpen: true, type: 'error', message: 'Descreva a alteracao solicitada.' });
+      return;
+    }
+
+    setIsSubmittingDataChange(true);
+
+    try {
+      await recordFormSubmission('data_change_request', {
+        email: user.email,
+        studentId,
+        message: dataChangeMessage.trim(),
+        requestedAt: new Date().toISOString(),
+      });
+
+      setModal({
+        isOpen: true,
+        type: 'success',
+        message: 'Solicitacao enviada! O admin vai analisar e entrar em contato.'
+      });
+
+      setShowDataChangeModal(false);
+      setDataChangeMessage('');
+    } catch (error) {
+      console.error('Erro ao enviar solicitacao de dados', error);
+      setModal({ isOpen: true, type: 'error', message: 'Nao foi possivel enviar a solicitacao. Tente novamente.' });
+    } finally {
+      setIsSubmittingDataChange(false);
+    }
+  };
+
   const openRatingModal = (course: Course) => {
      setCourseToRate(course);
      setCurrentRating(0);
@@ -465,7 +548,14 @@ const UserDashboard: React.FC<UserDashboardProps> = ({
 
                   {!isRegistering && (
                     <div className="flex justify-end">
-                      <button type="button" className="text-xs font-bold text-[#9A0000] hover:underline">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setForgotEmail(email);
+                          setShowForgotModal(true);
+                        }}
+                        className="text-xs font-bold text-[#9A0000] hover:underline"
+                      >
                         Esqueceu a senha?
                       </button>
                     </div>
@@ -502,6 +592,63 @@ const UserDashboard: React.FC<UserDashboardProps> = ({
             </div>
           </div>
         </div>
+
+        {showForgotModal && (
+          <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
+            <div className="bg-white w-full max-w-md rounded-2xl shadow-xl p-6 relative">
+              <button
+                onClick={() => setShowForgotModal(false)}
+                className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"
+                aria-label="Fechar"
+              >
+                <X size={20} />
+              </button>
+              <h3 className="text-lg font-bold text-gray-800 mb-2">Esqueceu sua senha?</h3>
+              <p className="text-sm text-gray-500 mb-4">
+                Informe seu e-mail e WhatsApp. O admin vai localizar seu cadastro e resetar sua senha para o CPF.
+              </p>
+              <div className="space-y-3">
+                <div>
+                  <label className="text-xs font-bold text-gray-500 uppercase">E-mail *</label>
+                  <input
+                    type="email"
+                    value={forgotEmail}
+                    onChange={(e) => setForgotEmail(e.target.value)}
+                    placeholder="seu@email.com"
+                    className="w-full mt-1 p-3 rounded-lg border border-gray-200 focus:border-[#9A0000] outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-gray-500 uppercase">WhatsApp</label>
+                  <input
+                    type="tel"
+                    value={forgotWhatsapp}
+                    onChange={(e) => setForgotWhatsapp(e.target.value)}
+                    placeholder="(21) 99999-9999"
+                    className="w-full mt-1 p-3 rounded-lg border border-gray-200 focus:border-[#9A0000] outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-gray-500 uppercase">Observacao</label>
+                  <textarea
+                    rows={3}
+                    value={forgotMessage}
+                    onChange={(e) => setForgotMessage(e.target.value)}
+                    placeholder="Descreva o problema se quiser"
+                    className="w-full mt-1 p-3 rounded-lg border border-gray-200 focus:border-[#9A0000] outline-none resize-none"
+                  />
+                </div>
+                <button
+                  onClick={handleForgotPasswordRequest}
+                  disabled={isSubmittingForgot}
+                  className="w-full bg-[#9A0000] text-white font-bold py-3 rounded-xl hover:bg-[#7a0000] transition-colors disabled:opacity-50"
+                >
+                  {isSubmittingForgot ? 'Enviando...' : 'Enviar solicitacao'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     );
   }
@@ -1052,12 +1199,64 @@ const UserDashboard: React.FC<UserDashboardProps> = ({
                      </button>
                    </div>
                  </div>
+
+                 {/* Requests Section */}
+                 <div className="mt-8 pt-8 border-t border-gray-100">
+                   <h2 className="text-xl font-bold text-gray-800 mb-3">Solicitacoes</h2>
+                   <p className="text-sm text-gray-500 mb-4">
+                     Precisa corrigir dados ou nome no certificado? Envie uma solicitacao para o admin.
+                   </p>
+                   <button
+                     type="button"
+                     onClick={() => setShowDataChangeModal(true)}
+                     className="px-6 py-3 bg-[#fff304] text-[#9A0000] rounded-lg font-bold shadow-sm hover:bg-[#ffe504] transition-colors"
+                   >
+                     Solicitar correcao de dados
+                   </button>
+                 </div>
                </div>
               </div>
             )}
           </div>
         </div>
       </div>
+
+      {showDataChangeModal && (
+        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-md rounded-2xl shadow-xl p-6 relative">
+            <button
+              onClick={() => setShowDataChangeModal(false)}
+              className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"
+              aria-label="Fechar"
+            >
+              <X size={20} />
+            </button>
+            <h3 className="text-lg font-bold text-gray-800 mb-2">Solicitar correcao</h3>
+            <p className="text-sm text-gray-500 mb-4">
+              Descreva o que precisa ser corrigido (dados pessoais ou nome no certificado).
+            </p>
+            <div className="space-y-3">
+              <div>
+                <label className="text-xs font-bold text-gray-500 uppercase">Descricao *</label>
+                <textarea
+                  rows={4}
+                  value={dataChangeMessage}
+                  onChange={(e) => setDataChangeMessage(e.target.value)}
+                  placeholder="Ex: Meu sobrenome esta errado no certificado..."
+                  className="w-full mt-1 p-3 rounded-lg border border-gray-200 focus:border-[#9A0000] outline-none resize-none"
+                />
+              </div>
+              <button
+                onClick={handleDataChangeRequest}
+                disabled={isSubmittingDataChange}
+                className="w-full bg-[#9A0000] text-white font-bold py-3 rounded-xl hover:bg-[#7a0000] transition-colors disabled:opacity-50"
+              >
+                {isSubmittingDataChange ? 'Enviando...' : 'Enviar solicitacao'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* FULL SCREEN ID CARD MODAL */}
       {showIdCard && (

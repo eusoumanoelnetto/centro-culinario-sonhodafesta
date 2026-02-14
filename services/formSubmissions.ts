@@ -7,6 +7,8 @@ export type FormSubmissionType =
   | 'teacher_application'
   | 'checkout'
   | 'certificate_request'
+  | 'password_reset_request'
+  | 'data_change_request'
   | 'user_login'
   | 'admin_login'
   | 'search'
