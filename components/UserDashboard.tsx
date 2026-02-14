@@ -75,6 +75,15 @@ const UserDashboard: React.FC<UserDashboardProps> = ({
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [isChangingPassword, setIsChangingPassword] = useState(false);
+
+  // Monitorar mudanças no modal de primeiro acesso
+  useEffect(() => {
+    console.log('📊 Estado do modal alterado:', {
+      showFirstAccessModal,
+      studentId,
+      shouldShowModal: showFirstAccessModal && !!studentId
+    });
+  }, [showFirstAccessModal, studentId]);
   
   // Rating Modal States
   const [showRatingModal, setShowRatingModal] = useState(false);

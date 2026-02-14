@@ -136,6 +136,7 @@ export async function authenticateStudent(email: string, password: string): Prom
   console.log('🔍 authenticateStudent chamado:', {
     email: email.trim().toLowerCase(),
     passwordLength: password.trim().length,
+    passwordValue: password.trim(),
     clientId: CLIENT_ID
   });
 
@@ -162,26 +163,33 @@ export async function authenticateStudent(email: string, password: string): Prom
     id: student.id,
     name: student.name,
     email: student.email,
-    hasCpf: !!student.cpf,
-    cpfPreview: student.cpf ? student.cpf.substring(0, 3) + '...' : null,
-    hasPassword: !!student.password,
-    passwordPreview: student.password ? student.password.substring(0, 3) + '...' : null,
+    cpf: student.cpf,
+    password: student.password,
     firstAccess: student.firstAccess
   });
 
   // Se for primeiro acesso, senha é o CPF
   if (student.firstAccess && student.cpf) {
-    console.log('🔑 Verificando CPF como senha (primeiro acesso)');
+    console.log('🔑 Primeiro acesso - comparando:');
+    console.log('   CPF armazenado:', student.cpf);
+    console.log('   Digite:', password.trim());
+    console.log('   Iguais?', password.trim() === student.cpf.trim());
+    
     const cpfMatch = password.trim() === student.cpf.trim();
-    console.log('🔑 CPF match:', cpfMatch);
     if (cpfMatch) {
+      console.log('✅ CPF correto - autenticação bem-sucedida');
       return student
     }
+    console.log('❌ CPF incorreto');
     return null
   }
 
   // Caso contrário, verifica senha normal
   console.log('🔑 Verificando senha normal');
+  console.log('   Senha armazenada:', student.password);
+  console.log('   Digitada:', password.trim());
+  console.log('   Iguais?', password.trim() === student.password?.trim());
+  
   if (student.password && password.trim() === student.password.trim()) {
     console.log('✅ Senha correta');
     return student
