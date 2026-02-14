@@ -56,5 +56,6 @@ export interface Student {
   leadTag?: string | null;
   lastContact?: string | null;
   avatarUrl?: string | null;
+  favorites?: string[] | null;
   createdAt?: string | null;
 }

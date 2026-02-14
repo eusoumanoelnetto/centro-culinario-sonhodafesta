@@ -16,6 +16,7 @@ export interface StudentInput {
   leadTag?: string
   lastContact?: string
   avatarUrl?: string
+  favorites?: string[]
 }
 
 interface StudentRow {
@@ -33,6 +34,7 @@ interface StudentRow {
   lead_tag: string | null
   last_contact_note: string | null
   avatar_url: string | null
+  favorites: string[] | null
   created_at: string | null
 }
 
@@ -54,6 +56,7 @@ function mapRowToStudent(row: StudentRow): Student {
     leadTag: row.lead_tag,
     lastContact: row.last_contact_note,
     avatarUrl: row.avatar_url,
+    favorites: row.favorites,
     createdAt: row.created_at,
   }
 }
@@ -73,6 +76,7 @@ function buildInsertPayload(input: StudentInput) {
     lead_tag: input.leadTag ?? null,
     last_contact_note: input.lastContact ?? null,
     avatar_url: input.avatarUrl ?? null,
+    favorites: input.favorites ?? null,
   }
 }
 
@@ -92,6 +96,7 @@ function buildUpdatePayload(input: StudentInput) {
   if (input.leadTag !== undefined) payload.lead_tag = input.leadTag || null
   if (input.lastContact !== undefined) payload.last_contact_note = input.lastContact || null
   if (input.avatarUrl !== undefined) payload.avatar_url = input.avatarUrl || null
+  if (input.favorites !== undefined) payload.favorites = input.favorites || null
   
   return payload
 }

@@ -16,7 +16,7 @@ interface UserDashboardProps {
   onBack: () => void;
   onNavigate: (page: string) => void;
   user: { name: string; email: string; avatar?: string } | null;
-  onLogin: (user: { name: string; email: string; avatar?: string }) => void;
+  onLogin: (user: { name: string; email: string; avatar?: string; studentId: string; favorites?: string[] }) => void;
   onLogout: () => void;
   onRate?: (courseId: string, rating: number) => void;
   favorites?: string[];
@@ -77,6 +77,13 @@ const UserDashboard: React.FC<UserDashboardProps> = ({
   const [isChangingPassword, setIsChangingPassword] = useState(false);
   const [userAvatarUrl, setUserAvatarUrl] = useState<string | null>(null);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  
+  // Student Data States
+  const [userCpf, setUserCpf] = useState<string>('');
+  const [userWhatsapp, setUserWhatsapp] = useState<string>('');
+  
+  // Profile Completion Check
+  const isProfileComplete = user && userCpf && userWhatsapp && userAvatarUrl;
   
   // Rating Modal States
   const [showRatingModal, setShowRatingModal] = useState(false);
@@ -192,6 +199,8 @@ const UserDashboard: React.FC<UserDashboardProps> = ({
 
         setStudentId(newStudent.id);
         setUserAvatarUrl(newStudent.avatarUrl || null);
+        setUserCpf(newStudent.cpf || '');
+        setUserWhatsapp(newStudent.whatsapp || '');
         
         // Verificar se há curso associado (cadastrado pelo admin)
         if (newStudent.course && allCourses.length > 0) {
@@ -212,6 +221,8 @@ const UserDashboard: React.FC<UserDashboardProps> = ({
           name: newStudent.name,
           email: newStudent.email,
           avatar: newStudent.avatarUrl || BASE_MOCK_DATA.avatar,
+          studentId: newStudent.id,
+          favorites: newStudent.favorites || [],
         });
       } catch (error) {
         console.error('Erro ao cadastrar aluno', error);
@@ -267,6 +278,8 @@ const UserDashboard: React.FC<UserDashboardProps> = ({
         // Login direto - sem modal de primeiro acesso
         setStudentId(student.id);
         setUserAvatarUrl(student.avatarUrl || null);
+        setUserCpf(student.cpf || '');
+        setUserWhatsapp(student.whatsapp || '');
         
         // Verificar se há curso associado (cadastrado pelo admin)
         if (student.course && allCourses.length > 0) {
@@ -287,6 +300,8 @@ const UserDashboard: React.FC<UserDashboardProps> = ({
           name: student.name,
           email: student.email,
           avatar: student.avatarUrl || BASE_MOCK_DATA.avatar,
+          studentId: student.id,
+          favorites: student.favorites || [],
         });
       } catch (error) {
         console.error('❌ Erro ao autenticar aluno:', error);
@@ -816,7 +831,32 @@ const UserDashboard: React.FC<UserDashboardProps> = ({
             )}
             
             {activeTab === 'settings' && (
-               <div className="bg-white p-8 rounded-2xl border border-gray-100 shadow-sm animate-in fade-in slide-in-from-bottom-2">
+              <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2">
+                {/* Alerta de Perfil Incompleto */}
+                {!isProfileComplete && (
+                  <div className="bg-gradient-to-r from-yellow-50 to-amber-50 border-l-4 border-yellow-500 p-6 rounded-xl shadow-sm">
+                    <div className="flex items-start gap-4">
+                      <div className="flex-shrink-0">
+                        <AlertCircle className="w-6 h-6 text-yellow-600" />
+                      </div>
+                      <div className="flex-1">
+                        <h3 className="text-lg font-bold text-yellow-900 mb-2">
+                          Complete seu perfil!
+                        </h3>
+                        <p className="text-sm text-yellow-800 mb-3">
+                          Para ter acesso completo à plataforma, por favor preencha todos os seus dados abaixo:
+                        </p>
+                        <ul className="text-sm text-yellow-700 space-y-1">
+                          {!userCpf && <li className="flex items-center gap-2"><span className="text-yellow-500">•</span> CPF</li>}
+                          {!userWhatsapp && <li className="flex items-center gap-2"><span className="text-yellow-500">•</span> WhatsApp</li>}
+                          {!userAvatarUrl && <li className="flex items-center gap-2"><span className="text-yellow-500">•</span> Foto de perfil</li>}
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              
+               <div className="bg-white p-8 rounded-2xl border border-gray-100 shadow-sm">
                  <h2 className="text-xl font-bold text-gray-800 mb-6 pb-4 border-b border-gray-100">Dados Pessoais</h2>
                  <form className="space-y-6 max-w-lg">
                     {/* ... (Mesmo código do form de settings) ... */}
@@ -837,6 +877,30 @@ const UserDashboard: React.FC<UserDashboardProps> = ({
                     <div>
                         <label className="text-xs font-bold text-gray-500 uppercase">E-mail</label>
                         <input type="email" defaultValue={user.email} className="w-full mt-1 p-3 bg-gray-50 rounded-lg border-transparent focus:bg-white focus:border-[#9A0000] border transition-all outline-none text-gray-800" />
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="text-xs font-bold text-gray-500 uppercase">CPF *</label>
+                        <input 
+                          type="text" 
+                          value={userCpf}
+                          onChange={(e) => setUserCpf(e.target.value)}
+                          placeholder="000.000.000-00"
+                          maxLength={14}
+                          className="w-full mt-1 p-3 bg-gray-50 rounded-lg border-transparent focus:bg-white focus:border-[#9A0000] border transition-all outline-none text-gray-800" 
+                        />
+                      </div>
+                      <div>
+                        <label className="text-xs font-bold text-gray-500 uppercase">WhatsApp *</label>
+                        <input 
+                          type="tel" 
+                          value={userWhatsapp}
+                          onChange={(e) => setUserWhatsapp(e.target.value)}
+                          placeholder="(21) 99999-9999"
+                          maxLength={15}
+                          className="w-full mt-1 p-3 bg-gray-50 rounded-lg border-transparent focus:bg-white focus:border-[#9A0000] border transition-all outline-none text-gray-800" 
+                        />
+                      </div>
                     </div>
                     <div>
                         <label className="text-xs font-bold text-gray-500 uppercase">Telefone</label>
@@ -897,20 +961,33 @@ const UserDashboard: React.FC<UserDashboardProps> = ({
                         }
 
                         try {
-                          // Se houver foto nova, salvar
+                          // Validar campos obrigatórios
+                          if (!userCpf) {
+                            setSettingsModal({ isOpen: true, type: 'error', message: 'Por favor, preencha seu CPF.' });
+                            return;
+                          }
+                          if (!userWhatsapp) {
+                            setSettingsModal({ isOpen: true, type: 'error', message: 'Por favor, preencha seu WhatsApp.' });
+                            return;
+                          }
+                          
+                          const { updateStudent } = await import('../services/students');
+                          await updateStudent(studentId, {
+                            name: user.name,
+                            email: user.email,
+                            cpf: userCpf,
+                            whatsapp: userWhatsapp,
+                            avatarUrl: userAvatarUrl || undefined,
+                          });
+                          
+                          // Atualizar o estado global e localStorage com a nova foto
                           if (userAvatarUrl) {
-                            const { updateStudent } = await import('../services/students');
-                            await updateStudent(studentId, {
-                              name: user.name,
-                              email: user.email,
-                              avatarUrl: userAvatarUrl,
-                            });
-                            
-                            // Atualizar o estado global e localStorage com a nova foto
                             onLogin({
                               name: user.name,
                               email: user.email,
                               avatar: userAvatarUrl,
+                              studentId: studentId!,
+                              favorites: undefined, // Não altera favoritos ao mudar foto
                             });
                           }
 
@@ -976,6 +1053,7 @@ const UserDashboard: React.FC<UserDashboardProps> = ({
                    </div>
                  </div>
                </div>
+              </div>
             )}
           </div>
         </div>

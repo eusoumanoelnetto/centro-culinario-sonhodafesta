@@ -52,18 +52,46 @@ const App: React.FC = () => {
   const [courseToSelectSeat, setCourseToSelectSeat] = useState<Course | null>(null);
 
   // User State Lifting
-  const [user, setUser] = useState<{name: string, email: string, avatar?: string} | null>(null);
+  const [user, setUser] = useState<{name: string, email: string, avatar?: string, studentId?: string} | null>(null);
 
   // Carregar usuário e página atual do localStorage ao inicializar
   useEffect(() => {
     const savedUser = localStorage.getItem('user_session');
     const savedView = localStorage.getItem('current_view');
+    const savedFavorites = localStorage.getItem('user_favorites');
     
     if (savedUser) {
       try {
         const userData = JSON.parse(savedUser);
         setUser(userData);
         console.log('✅ Sessão restaurada:', userData.name);
+        
+        // Se tem studentId, tentar carregar favoritos atualizados do banco
+        if (userData.studentId) {
+          import('./services/students').then(async ({ updateStudent, listStudents }) => {
+            try {
+              const students = await listStudents();
+              const student = students.find(s => s.id === userData.studentId);
+              if (student && student.favorites) {
+                setFavorites(student.favorites);
+                localStorage.setItem('user_favorites', JSON.stringify(student.favorites));
+                console.log('❤️ Favoritos sincronizados do banco:', student.favorites.length, 'cursos');
+              }
+            } catch (error) {
+              console.error('Erro ao sincronizar favoritos:', error);
+              // Fallback para localStorage se banco falhar
+              if (savedFavorites) {
+                const favoritesData = JSON.parse(savedFavorites);
+                setFavorites(favoritesData);
+              }
+            }
+          });
+        } else if (savedFavorites) {
+          // Sem studentId, usar apenas localStorage
+          const favoritesData = JSON.parse(savedFavorites);
+          setFavorites(favoritesData);
+          console.log('❤️ Favoritos restaurados do cache:', favoritesData.length, 'cursos');
+        }
       } catch (error) {
         console.error('Erro ao restaurar sessão:', error);
         localStorage.removeItem('user_session');
@@ -156,20 +184,39 @@ const App: React.FC = () => {
     window.scrollTo(0, 0);
   };
 
-  const handleToggleFavorite = (course: Course) => {
+  const handleToggleFavorite = async (course: Course) => {
     if (!user) {
       setModal({ isOpen: true, type: 'warning', message: 'Por favor, faça login ou cadastre-se para favoritar cursos.' });
       handleNavigate('profile');
       return;
     }
 
-    setFavorites(prev => {
-      if (prev.includes(course.id)) {
-        return prev.filter(id => id !== course.id);
-      } else {
-        return [...prev, course.id];
+    const updatedFavorites = favorites.includes(course.id)
+      ? favorites.filter(id => id !== course.id)
+      : [...favorites, course.id];
+    
+    // Atualizar estado local imediatamente para UX rápido
+    setFavorites(updatedFavorites);
+    
+    // Salvar no localStorage (cache)
+    localStorage.setItem('user_favorites', JSON.stringify(updatedFavorites));
+    console.log('❤️ Favoritos atualizados localmente:', updatedFavorites.length, 'cursos');
+    
+    // Salvar no banco de dados (persistência)
+    if (user.studentId) {
+      try {
+        const { updateStudent } = await import('./services/students');
+        await updateStudent(user.studentId, {
+          name: user.name,
+          email: user.email,
+          favorites: updatedFavorites,
+        });
+        console.log('📡 Favoritos salvos no banco de dados');
+      } catch (error) {
+        console.error('❌ Erro ao salvar favoritos no banco:', error);
+        // Não reverte o estado local - favoritos ficam salvos no localStorage
       }
-    });
+    }
   };
 
   const handleAddCourse = (newCourse: Course) => {
@@ -283,8 +330,16 @@ const App: React.FC = () => {
     }
   };
 
-  const handleLogin = (userData: {name: string, email: string, avatar?: string}) => {
+  const handleLogin = (userData: {name: string, email: string, avatar?: string, studentId: string, favorites?: string[]}) => {
     setUser(userData);
+    
+    // Carregar favoritos do banco de dados
+    if (userData.favorites) {
+      setFavorites(userData.favorites);
+      localStorage.setItem('user_favorites', JSON.stringify(userData.favorites));
+      console.log('❤️ Favoritos carregados do banco:', userData.favorites.length, 'cursos');
+    }
+    
     // Salvar sessão no localStorage
     localStorage.setItem('user_session', JSON.stringify(userData));
     console.log('💾 Sessão salva:', userData.name);
@@ -292,10 +347,13 @@ const App: React.FC = () => {
 
   const handleLogout = () => {
     setUser(null);
-    // Remover sessão e página atual do localStorage
+    // Remover sessão, página atual e favoritos do localStorage
     localStorage.removeItem('user_session');
     localStorage.removeItem('current_view');
+    localStorage.removeItem('user_favorites');
     console.log('🚪 Sessão encerrada');
+    // Limpar favoritos ao deslogar
+    setFavorites([]);
     handleNavigate('home');
   };
 
