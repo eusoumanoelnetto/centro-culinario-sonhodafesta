@@ -119,6 +119,8 @@ const UserDashboard: React.FC<UserDashboardProps> = ({
   const [forgotWhatsapp, setForgotWhatsapp] = useState('');
   const [forgotMessage, setForgotMessage] = useState('');
   const [isSubmittingForgot, setIsSubmittingForgot] = useState(false);
+  const [forgotStatus, setForgotStatus] = useState<'idle' | 'success' | 'error'>('idle');
+  const [forgotErrorDetail, setForgotErrorDetail] = useState('');
 
   // Data Change Request States
   const [showDataChangeModal, setShowDataChangeModal] = useState(false);
@@ -360,6 +362,8 @@ const UserDashboard: React.FC<UserDashboardProps> = ({
     }
 
     setIsSubmittingForgot(true);
+    setForgotStatus('idle');
+    setForgotErrorDetail('');
 
     try {
       await recordFormSubmission('password_reset_request', {
@@ -369,19 +373,22 @@ const UserDashboard: React.FC<UserDashboardProps> = ({
         requestedAt: new Date().toISOString(),
       });
 
+      setShowForgotModal(false);
       setModal({
         isOpen: true,
         type: 'success',
-        message: 'Solicitacao enviada! Em breve o admin vai resetar sua senha para o CPF.'
+        message: 'Solicitacao enviada! O admin vai analisar e entrar em contato.'
       });
-
-      setShowForgotModal(false);
+      setForgotStatus('success');
       setForgotEmail('');
       setForgotWhatsapp('');
       setForgotMessage('');
     } catch (error) {
       console.error('Erro ao enviar solicitacao de senha', error);
+      const errMsg = (error as { message?: string })?.message || 'Erro desconhecido';
+      setForgotErrorDetail(errMsg);
       setModal({ isOpen: true, type: 'error', message: 'Nao foi possivel enviar a solicitacao. Tente novamente.' });
+      setForgotStatus('error');
     } finally {
       setIsSubmittingForgot(false);
     }
@@ -605,7 +612,7 @@ const UserDashboard: React.FC<UserDashboardProps> = ({
               </button>
               <h3 className="text-lg font-bold text-gray-800 mb-2">Esqueceu sua senha?</h3>
               <p className="text-sm text-gray-500 mb-4">
-                Informe seu e-mail e WhatsApp. O admin vai localizar seu cadastro e resetar sua senha para o CPF.
+                Informe seu e-mail e WhatsApp. O admin vai localizar seu cadastro e ajudar na recuperacao.
               </p>
               <div className="space-y-3">
                 <div>
@@ -629,7 +636,7 @@ const UserDashboard: React.FC<UserDashboardProps> = ({
                   />
                 </div>
                 <div>
-                  <label className="text-xs font-bold text-gray-500 uppercase">Observacao</label>
+                  <label className="text-xs font-bold text-gray-500 uppercase">Observacao (opcional)</label>
                   <textarea
                     rows={3}
                     value={forgotMessage}
@@ -645,10 +652,28 @@ const UserDashboard: React.FC<UserDashboardProps> = ({
                 >
                   {isSubmittingForgot ? 'Enviando...' : 'Enviar solicitacao'}
                 </button>
+                {forgotStatus === 'error' && (
+                  <p className="text-sm text-red-600 font-semibold">
+                    Nao foi possivel enviar. Tente novamente.
+                    {forgotErrorDetail ? ` (${forgotErrorDetail})` : ''}
+                  </p>
+                )}
               </div>
             </div>
           </div>
         )}
+
+      {/* General Modal (login screen) */}
+      {modal && (
+        <Modal
+          isOpen={modal.isOpen}
+          onClose={() => setModal(null)}
+          type={modal.type}
+          title={modal.title}
+          message={modal.message}
+          onConfirm={modal.onConfirm}
+        />
+      )}
       </div>
     );
   }

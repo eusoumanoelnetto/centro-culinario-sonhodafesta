@@ -362,6 +362,17 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
     setCorrectionName(request.studentName); 
   };
 
+  const handleOpenRequests = () => {
+    setActiveTab('certificates');
+    setViewMode('list');
+    setTimeout(() => {
+      const section = document.getElementById('admin-requests');
+      if (section) {
+        section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }, 50);
+  };
+
   const handleResetPasswordToCpf = async (email: string, requestId: string) => {
     const student = studentsList.find(s => s.email?.toLowerCase() === email.toLowerCase());
 
@@ -1540,6 +1551,16 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
                     <span className="bg-red-500 text-white text-[10px] px-1.5 py-0.5 rounded-full animate-pulse">{pendingRequestsCount}</span>
                   )}
                 </button>
+                <button
+                  onClick={handleOpenRequests}
+                  className="w-full flex items-center gap-3 pl-12 pr-4 py-3 rounded-xl text-xs font-bold transition-all text-gray-600 hover:bg-gray-50"
+                >
+                  <BellRing size={16} />
+                  <span className="flex-1">Solicitações</span>
+                  {pendingRequestsCount > 0 && (
+                    <span className="bg-red-500 text-white text-[10px] px-1.5 py-0.5 rounded-full animate-pulse">{pendingRequestsCount}</span>
+                  )}
+                </button>
               </div>
             </div>
           </div>
@@ -1601,7 +1622,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
                     <div className="animate-in fade-in duration-300">
 
                       {/* SOLICITACOES */}
-                      <div className="bg-white border border-gray-200 rounded-2xl p-6 mb-8 shadow-sm">
+                      <div id="admin-requests" className="bg-white border border-gray-200 rounded-2xl p-6 mb-8 shadow-sm">
                         <div className="flex items-center justify-between mb-4">
                           <h3 className="font-bold text-gray-800 flex items-center gap-2">
                             <BellRing size={18} className="text-[#9A0000]" /> Solicitacoes
