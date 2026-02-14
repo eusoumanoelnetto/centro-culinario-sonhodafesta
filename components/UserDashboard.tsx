@@ -855,6 +855,13 @@ const UserDashboard: React.FC<UserDashboardProps> = ({
                               email: user.email,
                               avatarUrl: userAvatarUrl,
                             });
+                            
+                            // Atualizar o estado global e localStorage com a nova foto
+                            onLogin({
+                              name: user.name,
+                              email: user.email,
+                              avatar: userAvatarUrl,
+                            });
                           }
 
                           setSettingsModal({ isOpen: true, type: 'success', message: 'Dados atualizados com sucesso!' });

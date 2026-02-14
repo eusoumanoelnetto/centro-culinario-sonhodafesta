@@ -54,9 +54,11 @@ const App: React.FC = () => {
   // User State Lifting
   const [user, setUser] = useState<{name: string, email: string, avatar?: string} | null>(null);
 
-  // Carregar usuário do localStorage ao inicializar
+  // Carregar usuário e página atual do localStorage ao inicializar
   useEffect(() => {
     const savedUser = localStorage.getItem('user_session');
+    const savedView = localStorage.getItem('current_view');
+    
     if (savedUser) {
       try {
         const userData = JSON.parse(savedUser);
@@ -66,6 +68,12 @@ const App: React.FC = () => {
         console.error('Erro ao restaurar sessão:', error);
         localStorage.removeItem('user_session');
       }
+    }
+    
+    if (savedView && savedUser) {
+      // Só restaura a view se houver uma sessão ativa
+      setCurrentView(savedView as any);
+      console.log('📄 Página restaurada:', savedView);
     }
   }, []);
 
@@ -192,6 +200,14 @@ const App: React.FC = () => {
     }
   };
 
+  // Salvar página atual no localStorage sempre que mudar
+  useEffect(() => {
+    if (user) {
+      // Só salva a página se o usuário estiver logado
+      localStorage.setItem('current_view', currentView);
+    }
+  }, [currentView, user]);
+
   const handleNavigate = (page: string) => {
     if (page === 'home') {
       setCurrentView('home');
@@ -276,8 +292,9 @@ const App: React.FC = () => {
 
   const handleLogout = () => {
     setUser(null);
-    // Remover sessão do localStorage
+    // Remover sessão e página atual do localStorage
     localStorage.removeItem('user_session');
+    localStorage.removeItem('current_view');
     console.log('🚪 Sessão encerrada');
     handleNavigate('home');
   };
