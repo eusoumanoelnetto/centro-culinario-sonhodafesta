@@ -512,6 +512,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
 
     let payload: Record<string, any> | null = null;
     let successMessage = activeTab === 'courses' ? 'Dados salvos com sucesso!' : 'Registro atualizado com sucesso!';
+    let shouldShowSuccess = false;
 
     if (activeTab === 'courses') {
       payload = {
@@ -519,6 +520,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
         data: courseData,
         has_image: Boolean(uploadedImage),
       };
+      shouldShowSuccess = true;
     } else if (activeTab === 'students') {
       const normalizedStatus = (studentData.status || 'Ativo').trim() || 'Ativo';
       const normalizedCourse = studentData.course.trim();
@@ -557,6 +559,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
         await loadStudents();
         setStudentData({ name: '', email: '', cpf: '', whatsapp: '', status: 'Ativo', course: '' });
         setEditingId(null);
+        shouldShowSuccess = true;
       } catch (error) {
         console.error('Erro ao salvar aluno', error);
         alert('Não foi possível salvar o aluno. Tente novamente.');
@@ -567,21 +570,24 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
         ...basePayload,
         data: teacherData,
       };
+      shouldShowSuccess = true;
     } else if (activeTab === 'blog') {
       payload = {
         ...basePayload,
         data: blogData,
       };
+      shouldShowSuccess = true;
+    }
+
+    if (shouldShowSuccess) {
+      showSuccess(successMessage);
+      setViewMode('list');
     }
 
     try {
       if (payload) {
         await recordFormSubmission('admin_record', payload);
       }
-
-      showSuccess(successMessage);
-
-      setTimeout(() => setViewMode('list'), 1000);
     } catch (error) {
       console.error('Erro ao registrar alteração administrativa', error);
       alert('Não foi possível registrar essa alteração no Supabase. Revise e tente novamente.');

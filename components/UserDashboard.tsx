@@ -178,7 +178,13 @@ const UserDashboard: React.FC<UserDashboardProps> = ({
         });
       } catch (error) {
         console.error('Erro ao cadastrar aluno', error);
-        setLoginError('Não foi possível concluir seu cadastro. Tente novamente.');
+        const supabaseErr = error as { code?: string; message?: string };
+        if (supabaseErr?.code === '23505') {
+          setLoginError('Este e-mail já está cadastrado. Faça login com sua senha ou CPF.');
+          setIsRegistering(false);
+        } else {
+          setLoginError('Não foi possível concluir seu cadastro. Tente novamente.');
+        }
       }
     } else {
       // Login: autenticar com senha ou CPF
