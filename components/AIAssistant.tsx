@@ -28,14 +28,6 @@ const AIAssistant: React.FC = () => {
     }
   }, [messages, isLeadCaptured]);
 
-  const handleLeadSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!leadName.trim() || !leadPhone.trim()) return;
-
-    setLeadError('');
-    setIsLeadSubmitting(true);
-
-    try {
   // Encerrar chat: limpa estado e fecha
   const handleEndChat = () => {
     setIsLeadCaptured(false);
@@ -62,6 +54,15 @@ const AIAssistant: React.FC = () => {
   const handleCancelClose = () => {
     setShowConfirmClose(false);
   };
+
+  const handleLeadSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!leadName.trim() || !leadPhone.trim()) return;
+
+    setLeadError('');
+    setIsLeadSubmitting(true);
+
+    try {
       await createLead({
         name: leadName.trim(),
         phone: leadPhone.trim(),
