@@ -38,6 +38,7 @@ const AIAssistant: React.FC = () => {
 
   // Ao clicar no X, encerra imediatamente
   const handleRequestClose = () => {
+    console.log('Botão X clicado');
     handleEndChat();
   };
 
