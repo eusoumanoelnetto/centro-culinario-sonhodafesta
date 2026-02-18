@@ -1198,34 +1198,20 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
   };
 
   // --- LOGIN SCREEN ---
-  // (Mantido igual ao original, omitido para focar na mudança solicitada)
+  // Se o usuário não estiver autenticado, renderiza uma tela de login simples
   if (!isAuthenticated) {
-    // ... (Login form code)
     return (
       <div className="min-h-screen bg-[#2c3e50] flex items-center justify-center p-4 font-quicksand">
-                    <button 
-                      onClick={() => handleNotifyTeacher(course)}
-                      className="mt-2 text-[10px] flex items-center gap-1 text-red-600 bg-red-50 px-2 py-1 rounded hover:bg-red-100 transition-colors w-fit"
-                      title="Enviar mensagem para o professor"
-                    >
-                      <Megaphone size={10} /> Cobrar Divulgação
-                    </button>
-                  )}
-                </td>
-                <td className="p-4 font-mono font-medium">R$ {course.price.toFixed(2)}</td>
-                <td className="p-4 text-right">
-                  <div className="flex justify-end gap-2">
-                    <button onClick={() => handleEdit(course, 'course')} className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg" title="Editar"><Edit size={16} /></button>
-                    <button onClick={() => handleDelete(course.id, 'course')} className="p-2 text-red-600 hover:bg-red-50 rounded-lg" title="Excluir"><Trash2 size={16} /></button>
-                  </div>
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
-    </div>
-  );
+        <div className="bg-white p-8 rounded-lg shadow-md w-full max-w-md text-center">
+          <h2 className="text-2xl font-bold mb-2">Painel Administrativo</h2>
+          <p className="text-sm text-gray-600 mb-4">Faça login para acessar as funcionalidades administrativas.</p>
+          <div className="mt-4">
+            <button className="px-4 py-2 bg-[#9A0000] text-white rounded-lg">Entrar</button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   // ... (Other render functions: renderStudentsTable, renderTeachersTable, renderBlogTable remain the same)
   const renderStudentsTable = () => {
