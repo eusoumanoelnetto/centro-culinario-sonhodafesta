@@ -1,24 +1,18 @@
   // --- UNITS REVENUE CHART DATA ---
+  // (deve estar dentro do componente para acessar chartTimeRange)
   const getUnitsChartData = () => {
-    // Simula dados por unidade para cada período (mensal, semestral, anual)
-    // No futuro, pode ser alimentado por dados reais
     const periods = {
       mensal: ['1', '2', '3', '4'],
       semestral: ['Set', 'Out', 'Nov', 'Dez', 'Jan', 'Fev'],
       anual: ['Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez', 'Jan', 'Fev']
     };
     const labels = periods[chartTimeRange];
-    // Gera arrays de receita por unidade (mock: tudo zerado, mas pronto para dados reais)
     const units = ['Bangu', 'Campo Grande', 'Duque de Caxias'];
-    // Aqui, cada unidade terá um array de receitas por período
-    const data = units.map(unit => {
-      // No futuro, buscar dados reais por unidade e período
-      return {
-        name: unit,
-        color: unit === 'Bangu' ? '#F59E42' : unit === 'Campo Grande' ? '#22C55E' : '#3B82F6',
-        values: labels.map(() => 0) // tudo zerado inicialmente
-      };
-    });
+    const data = units.map(unit => ({
+      name: unit,
+      color: unit === 'Bangu' ? '#F59E42' : unit === 'Campo Grande' ? '#22C55E' : '#3B82F6',
+      values: labels.map(() => 0)
+    }));
     return { labels, data };
   };
             {/* --- UNITS REVENUE CURVE CHART --- */}
