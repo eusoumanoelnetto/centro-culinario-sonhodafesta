@@ -20,7 +20,7 @@ import SeatSelector from './components/SeatSelector';
 import AdminDashboard from './components/AdminDashboard';
 import Units from './components/Units';
 import Modal from './components/Modal';
-import { Course, BlogPost } from './types';
+import { Course, BlogPost, CartItem, CartHistoryEvent } from './types';
 import { CATEGORIES, COURSES, TESTIMONIALS, BLOG_POSTS } from './constants';
 import { 
   PartyPopper, Palette, Scissors, Cake, Star, 
@@ -28,6 +28,7 @@ import {
   Gift, Egg, Heart, Baby, Flower, User, MessageCircle, Lock, Cookie, Facebook
 } from 'lucide-react';
 import { recordFormSubmission } from './services/formSubmissions';
+import { fetchCartData, upsertCartItem, updateCartItemStatus, appendCartHistory, deleteCartHistoryByAction } from './services/cart';
 
 const App: React.FC = () => {
   const [activeCategory, setActiveCategory] = useState('Todos');
@@ -36,13 +37,16 @@ const App: React.FC = () => {
   
   // Estado global dos cursos
   const [courses, setCourses] = useState<Course[]>(COURSES);
+  const coursesRef = useRef<Course[]>(COURSES);
+  const pendingCartSync = useRef<Promise<void> | null>(null);
   
   // Estado global do blog
   const [blogPosts, setBlogPosts] = useState<BlogPost[]>(BLOG_POSTS);
   
   // Cart State
-  const [cart, setCart] = useState<Course[]>([]);
+  const [cart, setCart] = useState<CartItem[]>([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
+  const [cartHistory, setCartHistory] = useState<CartHistoryEvent[]>([]);
 
   // Favorites State
   const [favorites, setFavorites] = useState<string[]>([]);
@@ -53,6 +57,48 @@ const App: React.FC = () => {
 
   // User State Lifting
   const [user, setUser] = useState<{name: string, email: string, avatar?: string, studentId?: string} | null>(null);
+
+  useEffect(() => {
+    coursesRef.current = courses;
+  }, [courses]);
+
+  const resolveCourseSnapshot = (courseId: string, fallback: Partial<Course> = {}): Course => {
+    const catalogCourse = coursesRef.current.find(course => course.id === courseId);
+    if (catalogCourse) {
+      return { ...catalogCourse, ...fallback, id: catalogCourse.id };
+    }
+    return { ...fallback, id: courseId } as Course;
+  };
+
+  const syncLocalCartToSupabase = (studentId: string) => {
+    if (!studentId) {
+      return Promise.resolve();
+    }
+
+    const itemsToSync = cart.filter((item) => item.status === 'active' && !item.persisted);
+    if (itemsToSync.length === 0) {
+      return Promise.resolve();
+    }
+
+    const syncPromise = (async () => {
+      try {
+        await Promise.all(
+          itemsToSync.map(async (item) => {
+            const targetCartItemId = item.cartItemId ?? `cart-${item.id}-${Date.now()}`;
+            await upsertCartItem(studentId, targetCartItemId, {
+              ...item,
+              id: item.id,
+            });
+          })
+        );
+      } catch (error) {
+        console.error('Erro ao sincronizar carrinho local com o banco:', error);
+      }
+    })();
+
+    pendingCartSync.current = syncPromise;
+    return syncPromise;
+  };
 
   // Carregar usuário e página atual do localStorage ao inicializar
   useEffect(() => {
@@ -105,6 +151,73 @@ const App: React.FC = () => {
     }
   }, []);
 
+  // Load cart and history from localStorage
+  useEffect(() => {
+    const savedCart = localStorage.getItem('cart');
+
+    if (savedCart) {
+      try {
+        const rawCart = JSON.parse(savedCart);
+        if (Array.isArray(rawCart)) {
+          const normalizedCart: CartItem[] = rawCart.map((item: any, index: number) => {
+            const rawCourseId: string | undefined = item.courseId ?? item.id ?? item?.course?.id;
+            const inferredCourseId = typeof rawCourseId === 'string' && rawCourseId.length > 0
+              ? rawCourseId
+              : `legacy-course-${index}`;
+
+            const mergedCourse = resolveCourseSnapshot(inferredCourseId, {
+              ...item,
+              ...item?.course,
+              id: inferredCourseId,
+            });
+
+            return {
+              ...mergedCourse,
+              selectedSeat: item.selectedSeat ?? mergedCourse.selectedSeat,
+              cartItemId: item.cartItemId ?? `cart-${inferredCourseId}-${index}`,
+              status: item.status ?? 'active',
+              persisted: Boolean(item.persisted),
+            } satisfies CartItem;
+          });
+
+          setCart(normalizedCart);
+          console.log('🛒 Carrinho restaurado:', normalizedCart.length, 'itens');
+        }
+      } catch (error) {
+        console.error('Erro ao restaurar carrinho:', error);
+      }
+    }
+
+    const savedHistory = localStorage.getItem('cart_history');
+
+    if (savedHistory) {
+      try {
+        const historyData = JSON.parse(savedHistory);
+        if (Array.isArray(historyData)) {
+          const normalizedHistory: CartHistoryEvent[] = historyData.map((item: any, index: number) => {
+            const courseId = item.courseId ?? item?.course?.id ?? `legacy-history-course-${index}`;
+            return {
+              id: item.id ?? `history-${index}`,
+              cartItemId: item.cartItemId ?? item.courseId ?? item.id ?? `legacy-${index}`,
+              courseId,
+              action: item.action ?? 'added',
+              course: resolveCourseSnapshot(courseId, item.course ?? item.snapshot ?? item),
+              timestamp: item.timestamp ? new Date(item.timestamp) : new Date(),
+              status: item.status ?? 'active',
+            } satisfies CartHistoryEvent;
+          });
+
+          const filteredHistory = normalizedHistory.filter((entry) => entry.action !== 'removed');
+
+          setCartHistory(filteredHistory);
+          console.log('📝 Histórico do carrinho restaurado:', filteredHistory.length, 'eventos');
+        }
+      } catch (error) {
+        console.error('Erro ao restaurar histórico:', error);
+      }
+    }
+  }, []);
+
   // Testimonials Carousel State
   const [testimonialIndex, setTestimonialIndex] = useState(0);
   const [isHoveringTestimonials, setIsHoveringTestimonials] = useState(false);
@@ -119,6 +232,81 @@ const App: React.FC = () => {
   const [modal, setModal] = useState<{ isOpen: boolean; type: 'success' | 'error' | 'warning' | 'confirm'; title?: string; message: string; onConfirm?: () => void } | null>(null);
 
   const logoUrl = "https://i.imgur.com/l2VarrP.jpeg";
+
+  // Save cart to localStorage whenever it changes
+  useEffect(() => {
+    localStorage.setItem('cart', JSON.stringify(cart));
+  }, [cart]);
+
+  // Save cart history to localStorage whenever it changes
+  useEffect(() => {
+    localStorage.setItem('cart_history', JSON.stringify(cartHistory));
+  }, [cartHistory]);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const hydrateFromSupabase = async () => {
+      if (!user?.studentId) {
+        return;
+      }
+
+      const syncPromise = pendingCartSync.current;
+      if (syncPromise) {
+        try {
+          await syncPromise;
+        } catch (error) {
+          console.error('Erro ao sincronizar itens locais antes de carregar o carrinho remoto:', error);
+        } finally {
+          pendingCartSync.current = null;
+        }
+      }
+
+      try {
+        const { items, history } = await fetchCartData(user.studentId);
+        if (!isMounted) {
+          return;
+        }
+
+        const activeCartItems: CartItem[] = items
+          .filter((item) => item.status === 'active')
+          .map((item) => {
+            const mergedCourse = resolveCourseSnapshot(item.courseId, item.snapshot);
+            return {
+              ...mergedCourse,
+              selectedSeat: item.snapshot.selectedSeat ?? mergedCourse.selectedSeat,
+              cartItemId: item.cartItemId,
+              status: item.status,
+              persisted: true,
+            } satisfies CartItem;
+          });
+
+        setCart(activeCartItems);
+
+        const historyEntries: CartHistoryEvent[] = history
+          .filter((entry) => entry.action !== 'removed')
+          .map((entry) => ({
+            id: entry.id,
+            cartItemId: entry.cartItemId,
+            courseId: entry.courseId,
+            action: entry.action,
+            course: resolveCourseSnapshot(entry.courseId, entry.snapshot),
+            timestamp: new Date(entry.createdAt),
+            status: items.find((item) => item.cartItemId === entry.cartItemId)?.status ?? 'active',
+          }));
+
+        setCartHistory(historyEntries);
+      } catch (error) {
+        console.error('Erro ao carregar carrinho do banco:', error);
+      }
+    };
+
+    void hydrateFromSupabase();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [user?.studentId]);
 
   // 🔌 Teste de conexão Supabase
   useEffect(() => {
@@ -339,6 +527,11 @@ const App: React.FC = () => {
       localStorage.setItem('user_favorites', JSON.stringify(userData.favorites));
       console.log('❤️ Favoritos carregados do banco:', userData.favorites.length, 'cursos');
     }
+
+     // Sincroniza carrinho local (offline) com o Supabase e deixa a hidratação aguardar
+    if (cart.length > 0) {
+      void syncLocalCartToSupabase(userData.studentId);
+    }
     
     // Salvar sessão no localStorage
     localStorage.setItem('user_session', JSON.stringify(userData));
@@ -351,9 +544,14 @@ const App: React.FC = () => {
     localStorage.removeItem('user_session');
     localStorage.removeItem('current_view');
     localStorage.removeItem('user_favorites');
+    localStorage.removeItem('cart');
+    localStorage.removeItem('cart_history');
     console.log('🚪 Sessão encerrada');
     // Limpar favoritos ao deslogar
     setFavorites([]);
+    setCart([]);
+    setCartHistory([]);
+    setIsCartOpen(false);
     handleNavigate('home');
   };
 
@@ -372,9 +570,45 @@ const App: React.FC = () => {
   };
 
   const addToCart = (course: Course) => {
-    const newItem = { ...course, id: `${course.id}-${Date.now()}` };
-    setCart([...cart, newItem]);
+    const cartItemId = `cart-${course.id}-${Date.now()}`;
+    const newItem: CartItem = {
+      ...course,
+      cartItemId,
+      status: 'active',
+      persisted: Boolean(user?.studentId) ? false : undefined,
+    };
+
+    setCart((prev) => [...prev, newItem]);
     setIsCartOpen(true);
+
+    const historyEntry: CartHistoryEvent = {
+      id: `history-${cartItemId}`,
+      cartItemId,
+      courseId: course.id,
+      action: 'added',
+      course: newItem,
+      timestamp: new Date(),
+      status: 'active',
+    };
+    setCartHistory((prev) => [...prev, historyEntry]);
+
+    if (user?.studentId) {
+      void (async () => {
+        try {
+          await upsertCartItem(user.studentId, cartItemId, newItem);
+          await appendCartHistory(user.studentId, cartItemId, 'added', newItem);
+          setCart((prev) =>
+            prev.map((item) =>
+              item.cartItemId === cartItemId
+                ? { ...item, persisted: true }
+                : item
+            )
+          );
+        } catch (error) {
+          console.error('Erro ao sincronizar item adicionado com o banco:', error);
+        }
+      })();
+    }
   };
 
   const handleSeatConfirmed = (course: Course, seat: string) => {
@@ -384,13 +618,63 @@ const App: React.FC = () => {
     setCourseToSelectSeat(null);
   };
 
-  const removeFromCart = (courseId: string) => {
-    setCart(cart.filter(item => item.id !== courseId));
+  const removeFromCart = (cartItemId: string) => {
+    const removedCourse = cart.find(item => item.cartItemId === cartItemId);
+    setCart((prev) => prev.filter(item => item.cartItemId !== cartItemId));
+
+    if (removedCourse) {
+      setCartHistory((prev) => prev.filter((entry) => !(entry.cartItemId === cartItemId && entry.action === 'added')));
+
+      if (user?.studentId) {
+        void (async () => {
+          try {
+            await updateCartItemStatus(user.studentId!, cartItemId, 'removed');
+            await deleteCartHistoryByAction(user.studentId!, cartItemId, 'added');
+          } catch (error) {
+            console.error('Erro ao atualizar remoção no banco:', error);
+          }
+        })();
+      }
+    }
   };
 
   const handleCheckoutSuccess = () => {
+    const checkoutTimestamp = new Date();
+    const itemsToFinalize = [...cart];
+
+    const purchasedEntries: CartHistoryEvent[] = itemsToFinalize.map((item) => ({
+      id: `history-${item.cartItemId}-purchased-${checkoutTimestamp.getTime()}`,
+      cartItemId: item.cartItemId,
+      courseId: item.id,
+      action: 'purchased',
+      course: item,
+      timestamp: checkoutTimestamp,
+      status: 'purchased',
+    }));
+
+    setCartHistory((prev) => {
+      const pendingCartItemIds = new Set(itemsToFinalize.map((item) => item.cartItemId));
+      const withoutPendingEntries = prev.filter(
+        (entry) => !(entry.action === 'added' && pendingCartItemIds.has(entry.cartItemId))
+      );
+      return [...withoutPendingEntries, ...purchasedEntries];
+    });
     setCart([]);
     handleNavigate('home');
+
+    if (user?.studentId) {
+      void Promise.allSettled(
+        itemsToFinalize.map(async (item) => {
+          try {
+            await updateCartItemStatus(user.studentId!, item.cartItemId, 'purchased');
+            await appendCartHistory(user.studentId!, item.cartItemId, 'purchased', item);
+            await deleteCartHistoryByAction(user.studentId!, item.cartItemId, 'added');
+          } catch (error) {
+            console.error('Erro ao registrar compra no banco:', error);
+          }
+        })
+      );
+    }
   };
 
   const renderContent = () => {
@@ -453,6 +737,7 @@ const App: React.FC = () => {
             favorites={favorites}
             allCourses={courses}
             onCourseClick={handleCourseClick}
+            cartHistory={cartHistory}
           />
         );
       case 'privacy':

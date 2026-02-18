@@ -4,12 +4,12 @@ import {
   CreditCard, Lock, User, Mail, Phone, FileText, CheckCircle2, 
   ShieldCheck, ArrowRight, MapPin, Calendar, Clock, AlertCircle 
 } from 'lucide-react';
-import { Course } from '../types';
+import { CartItem } from '../types';
 import { recordFormSubmission } from '../services/formSubmissions';
 
 interface CheckoutPageProps {
-  cartItems: Course[];
-  onRemoveItem: (courseId: string) => void;
+  cartItems: CartItem[];
+  onRemoveItem: (cartItemId: string) => void;
   onSuccess: () => void; // Função para limpar o carrinho após sucesso
   onBack: () => void;
 }
@@ -278,8 +278,8 @@ const CheckoutPage: React.FC<CheckoutPageProps> = ({ cartItems, onRemoveItem, on
               </div>
               
               <div className="p-6 space-y-6 max-h-[400px] overflow-y-auto bg-gray-50/50">
-                {cartItems.map((item, idx) => (
-                  <div key={idx} className="flex gap-4 border-b border-gray-200 pb-6 last:border-0 last:pb-0">
+                {cartItems.map((item) => (
+                  <div key={item.cartItemId} className="flex gap-4 border-b border-gray-200 pb-6 last:border-0 last:pb-0">
                     <div className="w-20 h-20 bg-white rounded-lg overflow-hidden flex-shrink-0 shadow-sm border border-gray-100">
                       <img src={item.image} alt={item.title} className="w-full h-full object-cover" />
                     </div>
@@ -302,7 +302,7 @@ const CheckoutPage: React.FC<CheckoutPageProps> = ({ cartItems, onRemoveItem, on
                     <div className="text-right flex flex-col justify-between">
                       <span className="font-bold text-[#9A0000] text-sm">R$ {item.price.toFixed(2).replace('.', ',')}</span>
                       <button 
-                        onClick={() => onRemoveItem(item.id)}
+                        onClick={() => onRemoveItem(item.cartItemId)}
                         className="text-[10px] text-gray-400 hover:text-red-500 hover:underline transition-colors"
                       >
                         Remover

@@ -5,7 +5,7 @@ import {
   BookOpen, Award, Heart, Settings, LogOut, CheckCircle2, PlayCircle, Download, QrCode, X, Share2, Sparkles, Briefcase, Star,
   Crown, Gift, TrendingUp, ShoppingBag, Ticket, Zap, AlertCircle, HelpCircle, FileText, Send
 } from 'lucide-react';
-import { Course } from '../types';
+import { Course, CartHistoryEvent } from '../types';
 import { COURSES } from '../constants';
 import CourseCard from './CourseCard';
 import Modal from './Modal';
@@ -22,6 +22,7 @@ interface UserDashboardProps {
   favorites?: string[];
   allCourses?: Course[];
   onCourseClick?: (course: Course) => void;
+  cartHistory?: CartHistoryEvent[];
 }
 
 // Dados simulados base com Gamificação
@@ -63,11 +64,12 @@ const UserDashboard: React.FC<UserDashboardProps> = ({
   onRate, 
   favorites = [], 
   allCourses = [],
-  onCourseClick
+  onCourseClick,
+  cartHistory = []
 }) => {
   const [isRegistering, setIsRegistering] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  const [activeTab, setActiveTab] = useState<'courses' | 'certificates' | 'wishlist' | 'settings'>('courses');
+  const [activeTab, setActiveTab] = useState<'courses' | 'certificates' | 'wishlist' | 'history' | 'settings'>('courses');
   const [showIdCard, setShowIdCard] = useState(false);
   
   // First Access Password Change Modal
@@ -81,9 +83,20 @@ const UserDashboard: React.FC<UserDashboardProps> = ({
   // Student Data States
   const [userCpf, setUserCpf] = useState<string>('');
   const [userWhatsapp, setUserWhatsapp] = useState<string>('');
+  const [userName, setUserName] = useState<string>('');
+  const [userSurname, setUserSurname] = useState<string>('');
+  const [isSelfServiceStudent, setIsSelfServiceStudent] = useState(false);
+  const [showProfileCompletionModal, setShowProfileCompletionModal] = useState(false);
+  const [hasAcknowledgedProfileModal, setHasAcknowledgedProfileModal] = useState(false);
+  const [hasSavedProfileData, setHasSavedProfileData] = useState(false);
   
   // Profile Completion Check
-  const isProfileComplete = user && userCpf && userWhatsapp && userAvatarUrl;
+  const isProfileComplete = Boolean(user && userCpf && userWhatsapp && userAvatarUrl && hasSavedProfileData);
+  const missingProfileFields = [
+    !userCpf ? 'CPF' : null,
+    !userWhatsapp ? 'WhatsApp' : null,
+    !userAvatarUrl ? 'Foto de perfil' : null
+  ].filter((field): field is string => Boolean(field));
   
   // Rating Modal States
   const [showRatingModal, setShowRatingModal] = useState(false);
@@ -112,6 +125,72 @@ const UserDashboard: React.FC<UserDashboardProps> = ({
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
   const [loginError, setLoginError] = useState('');
+
+  useEffect(() => {
+    if (!user) {
+      setShowProfileCompletionModal(false);
+      setHasAcknowledgedProfileModal(false);
+      setIsSelfServiceStudent(false);
+      setHasSavedProfileData(false);
+      return;
+    }
+
+    if (!isSelfServiceStudent) {
+      if (showProfileCompletionModal) {
+        setShowProfileCompletionModal(false);
+      }
+      return;
+    }
+
+    if (isProfileComplete) {
+      if (showProfileCompletionModal) {
+        setShowProfileCompletionModal(false);
+      }
+      if (hasAcknowledgedProfileModal) {
+        setHasAcknowledgedProfileModal(false);
+      }
+      return;
+    }
+
+    if (!hasAcknowledgedProfileModal && !showProfileCompletionModal) {
+      setShowProfileCompletionModal(true);
+    }
+  }, [
+    user,
+    isSelfServiceStudent,
+    isProfileComplete,
+    hasAcknowledgedProfileModal,
+    showProfileCompletionModal
+  ]);
+
+  useEffect(() => {
+    if (!user || !isSelfServiceStudent || isProfileComplete) {
+      return;
+    }
+
+    if (hasAcknowledgedProfileModal && activeTab !== 'settings') {
+      setHasAcknowledgedProfileModal(false);
+      setShowProfileCompletionModal(true);
+    }
+  }, [
+    activeTab,
+    user,
+    isSelfServiceStudent,
+    isProfileComplete,
+    hasAcknowledgedProfileModal
+  ]);
+
+  // Sincronizar user prop com estados locais quando user atualiza
+  useEffect(() => {
+    if (!user) return;
+    
+    // Se o perfil foi completo (salvou), atualizar o estado local hasSavedProfileData para true
+    // Isso evita que o banner continue aparecendo após salvar
+    if (userCpf && userWhatsapp && userAvatarUrl && hasSavedProfileData) {
+      // Perfil já estava completo, manter assim
+      return;
+    }
+  }, [user]);
 
   // Forgot Password Request States
   const [showForgotModal, setShowForgotModal] = useState(false);
@@ -144,6 +223,20 @@ const UserDashboard: React.FC<UserDashboardProps> = ({
 
   // Filtrar cursos favoritos reais
   const wishlistCourses = allCourses.filter(c => favorites.includes(c.id));
+
+  const handleProfileModalConfirm = () => {
+    setActiveTab('settings');
+    setHasAcknowledgedProfileModal(true);
+    setShowProfileCompletionModal(false);
+  };
+
+  const handleLogoutClick = () => {
+    setShowProfileCompletionModal(false);
+    setHasAcknowledgedProfileModal(false);
+    setIsSelfServiceStudent(false);
+    setHasSavedProfileData(false);
+    onLogout();
+  };
 
   // --- CERTIFICATE REQUEST LOGIC ---
   const handleOpenCertRequest = (course: Course) => {
@@ -215,6 +308,11 @@ const UserDashboard: React.FC<UserDashboardProps> = ({
         setUserAvatarUrl(newStudent.avatarUrl || null);
         setUserCpf(newStudent.cpf || '');
         setUserWhatsapp(newStudent.whatsapp || '');
+        setUserName(newStudent.name.split(' ')[0] || '');
+        setUserSurname(newStudent.name.split(' ').slice(1).join(' ') || '');
+        setIsSelfServiceStudent((newStudent.source ?? 'admin') === 'self-service');
+        setHasSavedProfileData(Boolean(newStudent.cpf && newStudent.whatsapp && newStudent.avatarUrl));
+        setHasAcknowledgedProfileModal(false);
         
         // Verificar se há curso associado (cadastrado pelo admin)
         if (newStudent.course && allCourses.length > 0) {
@@ -294,6 +392,11 @@ const UserDashboard: React.FC<UserDashboardProps> = ({
         setUserAvatarUrl(student.avatarUrl || null);
         setUserCpf(student.cpf || '');
         setUserWhatsapp(student.whatsapp || '');
+        setUserName(student.name.split(' ')[0] || '');
+        setUserSurname(student.name.split(' ').slice(1).join(' ') || '');
+        setIsSelfServiceStudent((student.source ?? 'admin') === 'self-service');
+        setHasSavedProfileData(Boolean(student.cpf && student.whatsapp && student.avatarUrl));
+        setHasAcknowledgedProfileModal(false);
         
         // Verificar se há curso associado (cadastrado pelo admin)
         if (student.course && allCourses.length > 0) {
@@ -706,7 +809,7 @@ const UserDashboard: React.FC<UserDashboardProps> = ({
               </div>
               <img src={user.avatar || BASE_MOCK_DATA.avatar} alt="Perfil" className="w-10 h-10 rounded-full border-2 border-white shadow-md object-cover" />
               <button 
-                onClick={onLogout}
+                onClick={handleLogoutClick}
                 className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-full transition-colors"
                 title="Sair"
               >
@@ -816,6 +919,7 @@ const UserDashboard: React.FC<UserDashboardProps> = ({
                 { id: 'courses', label: 'Meus Cursos', icon: BookOpen },
                 { id: 'certificates', label: 'Certificados', icon: Award },
                 { id: 'wishlist', label: 'Lista de Desejos', icon: Heart },
+                { id: 'history', label: 'Histórico', icon: ShoppingBag },
                 { id: 'settings', label: 'Meus Dados', icon: Settings },
               ].map((item) => (
                 <button
@@ -1002,10 +1106,75 @@ const UserDashboard: React.FC<UserDashboardProps> = ({
               </div>
             )}
             
+            {activeTab === 'history' && (
+              <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2">
+                <h2 className="text-2xl font-bold text-gray-800 font-serif">Histórico de Carrinho</h2>
+                {cartHistory && cartHistory.length > 0 ? (
+                  <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+                    <div className="divided-y divide-gray-100">
+                      {cartHistory.map((item) => {
+                        const getActionLabel = () => {
+                          switch(item.action) {
+                            case 'added': return '➕ Adicionado';
+                            case 'removed': return '❌ Removido';
+                            case 'purchased': return '✅ Comprado';
+                            default: return item.action;
+                          }
+                        };
+
+                        const getActionColor = () => {
+                          switch(item.action) {
+                            case 'added': return 'bg-blue-50 text-blue-700 border-blue-200';
+                            case 'removed': return 'bg-red-50 text-red-700 border-red-200';
+                            case 'purchased': return 'bg-green-50 text-green-700 border-green-200';
+                            default: return 'bg-gray-50 text-gray-700';
+                          }
+                        };
+
+                        return (
+                          <div key={item.id} className="p-4 flex items-start gap-4 hover:bg-gray-50 transition-colors border-b border-gray-100 last:border-0">
+                            <div className="w-16 h-16 rounded-lg overflow-hidden flex-shrink-0 bg-gray-100">
+                              <img src={item.course.image} alt={item.course.title} className="w-full h-full object-cover" />
+                            </div>
+                            <div className="flex-grow">
+                              <div className="flex items-start justify-between mb-1">
+                                <h3 className="font-bold text-gray-800">{item.course.title}</h3>
+                                <span className={`text-xs font-bold px-2.5 py-1 rounded-full border ${getActionColor()}`}>
+                                  {getActionLabel()}
+                                </span>
+                              </div>
+                              <p className="text-sm text-gray-500 mb-2">{item.course.instructor}</p>
+                              <div className="flex items-center justify-between">
+                                <span className="text-sm font-bold text-[#9A0000]">
+                                  R$ {item.course.price.toFixed(2).replace('.', ',')}
+                                </span>
+                                <span className="text-xs text-gray-400">
+                                  {new Date(item.timestamp).toLocaleDateString('pt-BR')} às {new Date(item.timestamp).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="bg-gradient-to-br from-gray-50 to-white p-12 rounded-2xl border-2 border-dashed border-gray-200 text-center">
+                    <ShoppingBag className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                    <h3 className="text-xl font-bold text-gray-700 mb-2">Histórico vazio</h3>
+                    <p className="text-gray-500 mb-6">Quando você adicionar cursos ao carrinho, eles aparecerão aqui.</p>
+                    <button onClick={() => onNavigate('catalog')} className="bg-[#9A0000] text-white px-8 py-3 rounded-xl font-bold hover:bg-[#7a0000] transition-colors">
+                      Ver Catálogo
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+            
             {activeTab === 'settings' && (
               <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2">
                 {/* Alerta de Perfil Incompleto */}
-                {!isProfileComplete && (
+                {!hasSavedProfileData && isSelfServiceStudent && (
                   <div className="bg-gradient-to-r from-yellow-50 to-amber-50 border-l-4 border-yellow-500 p-6 rounded-xl shadow-sm">
                     <div className="flex items-start gap-4">
                       <div className="flex-shrink-0">
@@ -1035,11 +1204,21 @@ const UserDashboard: React.FC<UserDashboardProps> = ({
                     <div className="grid grid-cols-2 gap-4">
                       <div>
                         <label className="text-xs font-bold text-gray-500 uppercase">Nome</label>
-                        <input type="text" defaultValue={user.name.split(' ')[0]} className="w-full mt-1 p-3 bg-gray-50 rounded-lg border-transparent focus:bg-white focus:border-[#9A0000] border transition-all outline-none text-gray-800" />
+                        <input 
+                          type="text" 
+                          value={userName}
+                          onChange={(e) => setUserName(e.target.value)}
+                          className="w-full mt-1 p-3 bg-gray-50 rounded-lg border-transparent focus:bg-white focus:border-[#9A0000] border transition-all outline-none text-gray-800" 
+                        />
                       </div>
                        <div>
                         <label className="text-xs font-bold text-gray-500 uppercase">Sobrenome</label>
-                        <input type="text" defaultValue={user.name.split(' ').slice(1).join(' ') || ""} className="w-full mt-1 p-3 bg-gray-50 rounded-lg border-transparent focus:bg-white focus:border-[#9A0000] border transition-all outline-none text-gray-800" />
+                        <input 
+                          type="text" 
+                          value={userSurname}
+                          onChange={(e) => setUserSurname(e.target.value)}
+                          className="w-full mt-1 p-3 bg-gray-50 rounded-lg border-transparent focus:bg-white focus:border-[#9A0000] border transition-all outline-none text-gray-800" 
+                        />
                       </div>
                     </div>
                     <div>
@@ -1056,7 +1235,10 @@ const UserDashboard: React.FC<UserDashboardProps> = ({
                         <input 
                           type="text" 
                           value={userCpf}
-                          onChange={(e) => setUserCpf(e.target.value)}
+                          onChange={(e) => {
+                            setUserCpf(e.target.value);
+                            setHasSavedProfileData(false);
+                          }}
                           placeholder="000.000.000-00"
                           maxLength={14}
                           className="w-full mt-1 p-3 bg-gray-50 rounded-lg border-transparent focus:bg-white focus:border-[#9A0000] border transition-all outline-none text-gray-800" 
@@ -1067,7 +1249,10 @@ const UserDashboard: React.FC<UserDashboardProps> = ({
                         <input 
                           type="tel" 
                           value={userWhatsapp}
-                          onChange={(e) => setUserWhatsapp(e.target.value)}
+                          onChange={(e) => {
+                            setUserWhatsapp(e.target.value);
+                            setHasSavedProfileData(false);
+                          }}
                           placeholder="(21) 99999-9999"
                           maxLength={15}
                           className="w-full mt-1 p-3 bg-gray-50 rounded-lg border-transparent focus:bg-white focus:border-[#9A0000] border transition-all outline-none text-gray-800" 
@@ -1099,6 +1284,7 @@ const UserDashboard: React.FC<UserDashboardProps> = ({
                                 setUploadingAvatar(true);
                                 try {
                                   // Converter imagem para data URL
+                                  setHasSavedProfileData(false);
                                   const reader = new FileReader();
                                   reader.onload = (event) => {
                                     const dataUrl = event.target?.result as string;
@@ -1142,20 +1328,26 @@ const UserDashboard: React.FC<UserDashboardProps> = ({
                             setSettingsModal({ isOpen: true, type: 'error', message: 'Por favor, preencha seu WhatsApp.' });
                             return;
                           }
+                          if (!userAvatarUrl) {
+                            setSettingsModal({ isOpen: true, type: 'error', message: 'Por favor, envie uma foto de perfil.' });
+                            return;
+                          }
                           
                           const { updateStudent } = await import('../services/students');
+                          const fullName = `${userName.trim()} ${userSurname.trim()}`.trim();
                           await updateStudent(studentId, {
-                            name: user.name,
+                            name: fullName || user.name,
                             email: user.email,
                             cpf: userCpf,
                             whatsapp: userWhatsapp,
                             avatarUrl: userAvatarUrl || undefined,
                           });
+                          setHasSavedProfileData(true);
                           
                           // Atualizar o estado global e localStorage com a nova foto
                           if (userAvatarUrl) {
                             onLogin({
-                              name: user.name,
+                              name: fullName || user.name,
                               email: user.email,
                               avatar: userAvatarUrl,
                               studentId: studentId!,
@@ -1245,6 +1437,40 @@ const UserDashboard: React.FC<UserDashboardProps> = ({
           </div>
         </div>
       </div>
+
+        {showProfileCompletionModal && (
+          <div className="fixed inset-0 z-[130] bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
+            <div className="bg-white w-full max-w-sm rounded-3xl shadow-2xl overflow-hidden">
+              <div className="px-8 pt-10 pb-6 text-center">
+                <div className="mx-auto mb-5 w-16 h-16 rounded-full bg-red-100 flex items-center justify-center text-[#9A0000]">
+                  <AlertCircle size={32} />
+                </div>
+                <h3 className="text-2xl font-serif font-bold text-[#9A0000] mb-2">Complete seus dados</h3>
+                <p className="text-sm text-gray-600 leading-relaxed">
+                  Para continuar usando sua área do aluno, finalize seu cadastro em <strong>Meus Dados</strong>.
+                </p>
+                {missingProfileFields.length > 0 && (
+                  <ul className="mt-5 space-y-2 text-sm text-gray-700 text-left font-semibold">
+                    {missingProfileFields.map((field) => (
+                      <li key={field} className="flex items-center gap-2">
+                        <ArrowRight size={16} className="text-[#9A0000]" />
+                        {field}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+              <div className="bg-gray-50 px-8 py-6">
+                <button
+                  onClick={handleProfileModalConfirm}
+                  className="w-full bg-[#9A0000] text-white font-bold text-sm py-3.5 rounded-xl hover:bg-[#7a0000] transition-colors"
+                >
+                  Confirmo
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
       {showDataChangeModal && (
         <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">

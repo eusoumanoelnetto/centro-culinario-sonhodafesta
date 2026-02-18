@@ -1,13 +1,13 @@
 
 import React from 'react';
 import { X, Trash2, ShoppingBag, ArrowRight, ShieldCheck } from 'lucide-react';
-import { Course } from '../types';
+import { CartItem } from '../types';
 
 interface CartSidebarProps {
   isOpen: boolean;
   onClose: () => void;
-  cartItems: Course[];
-  onRemoveItem: (courseId: string) => void;
+  cartItems: CartItem[];
+  onRemoveItem: (cartItemId: string) => void;
   onCheckout: () => void;
 }
 
@@ -75,8 +75,8 @@ const CartSidebar: React.FC<CartSidebarProps> = ({ isOpen, onClose, cartItems, o
             </div>
           ) : (
             <div className="space-y-4">
-              {cartItems.map((item, index) => (
-                <div key={`${item.id}-${index}`} className="bg-white p-3 rounded-xl border border-gray-100 shadow-sm flex gap-4 animate-in slide-in-from-right-4 duration-300 group hover:border-[#9A0000]/30 transition-colors relative overflow-hidden">
+              {cartItems.map((item) => (
+                <div key={item.cartItemId} className="bg-white p-3 rounded-xl border border-gray-100 shadow-sm flex gap-4 animate-in slide-in-from-right-4 duration-300 group hover:border-[#9A0000]/30 transition-colors relative overflow-hidden">
                   {/* Decorative bar */}
                   <div className="absolute left-0 top-0 bottom-0 w-1 bg-[#9A0000] opacity-0 group-hover:opacity-100 transition-opacity"></div>
 
@@ -104,7 +104,7 @@ const CartSidebar: React.FC<CartSidebarProps> = ({ isOpen, onClose, cartItems, o
                   </div>
 
                   <button 
-                    onClick={() => onRemoveItem(item.id)}
+                    onClick={() => onRemoveItem(item.cartItemId)}
                     className="absolute top-3 right-3 text-gray-300 hover:text-red-500 transition-colors"
                     title="Remover"
                   >
@@ -131,17 +131,25 @@ const CartSidebar: React.FC<CartSidebarProps> = ({ isOpen, onClose, cartItems, o
                </div>
             </div>
             
-            <button 
-              onClick={onCheckout}
-              className="w-full bg-[#d20000] text-white py-4 rounded-xl font-bold text-lg hover:bg-[#b00000] transition-all shadow-lg shadow-red-100 flex items-center justify-center gap-2 group relative overflow-hidden"
-            >
-              <span className="relative z-10 flex items-center gap-2">
-                Finalizar Compra <ArrowRight size={20} className="group-hover:translate-x-1 transition-transform" />
-              </span>
-              <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300"></div>
-            </button>
+            <div className="flex flex-col gap-2 mb-4">
+              <button 
+                onClick={onCheckout}
+                className="w-full bg-[#d20000] text-white py-3.5 rounded-xl font-bold text-lg hover:bg-[#b00000] transition-all shadow-lg shadow-red-100 flex items-center justify-center gap-2 group relative overflow-hidden"
+              >
+                <span className="relative z-10 flex items-center gap-2">
+                  Finalizar Compra <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
+                </span>
+                <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300"></div>
+              </button>
+              <button 
+                onClick={onClose}
+                className="w-full bg-white border border-[#9A0000]/30 text-[#9A0000] py-3 rounded-xl font-bold text-sm hover:bg-red-50 transition-all"
+              >
+                Continuar comprando
+              </button>
+            </div>
 
-            <div className="mt-4 flex items-center justify-center gap-2 text-[10px] text-gray-400">
+            <div className="flex items-center justify-center gap-2 text-[10px] text-gray-400">
                <ShieldCheck size={12} className="text-green-500" />
                Compra 100% Segura
             </div>

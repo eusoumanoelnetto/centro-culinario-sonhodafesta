@@ -15,6 +15,24 @@ export interface Course {
   selectedSeat?: string;
 }
 
+export type CartStatus = 'active' | 'removed' | 'purchased';
+
+export interface CartItem extends Course {
+  cartItemId: string;
+  status: CartStatus;
+  persisted?: boolean;
+}
+
+export interface CartHistoryEvent {
+  id: string;
+  cartItemId: string;
+  courseId: string;
+  action: 'added' | 'removed' | 'purchased';
+  course: Course;
+  timestamp: Date;
+  status?: CartStatus;
+}
+
 export interface Testimonial {
   id: string;
   name: string;
