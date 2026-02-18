@@ -52,32 +52,49 @@ const Hero: React.FC<HeroProps> = ({ onViewCatalog }) => {
             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[120%] h-[120%] bg-gradient-to-tr from-[#fff304]/20 via-[#d20000]/5 to-[#9A0000]/10 rounded-full blur-3xl -z-10"></div>
             
             <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-4 pt-12">
-                <img 
-                  src="https://i.imgur.com/u7804Ci.jpeg" 
+                <div className="space-y-4 pt-12">
+                <img
+                  src="https://i.imgur.com/u7804Ci.jpeg"
                   onClick={() => setSelectedImage("https://i.imgur.com/u7804Ci.jpeg")}
-                  className="rounded-2xl shadow-xl w-full h-64 object-cover hover:-translate-y-2 transition-transform duration-500 cursor-pointer hover:shadow-2xl" 
+                  className="rounded-2xl shadow-xl w-full h-64 object-cover hover:-translate-y-2 transition-transform duration-500 cursor-pointer hover:shadow-2xl"
                   alt="Bolo decorado"
+                  loading="eager"
+                  decoding="async"
+                  fetchPriority="high"
+                  width={512}
+                  height={256}
                 />
-                 <img 
-                  src="https://i.imgur.com/LidmkBE.jpeg" 
+                 <img
+                  src="https://i.imgur.com/LidmkBE.jpeg"
                   onClick={() => setSelectedImage("https://i.imgur.com/LidmkBE.jpeg")}
-                  className="rounded-2xl shadow-xl w-full h-48 object-cover hover:-translate-y-2 transition-transform duration-500 cursor-pointer hover:shadow-2xl" 
+                  className="rounded-2xl shadow-xl w-full h-48 object-cover hover:-translate-y-2 transition-transform duration-500 cursor-pointer hover:shadow-2xl"
                   alt="Confeitaria e Cupcakes"
+                  loading="lazy"
+                  decoding="async"
+                  width={384}
+                  height={192}
                 />
               </div>
               <div className="space-y-4">
-                <img 
-                  src="https://i.imgur.com/JXQmcIv.jpeg" 
+                <img
+                  src="https://i.imgur.com/JXQmcIv.jpeg"
                   onClick={() => setSelectedImage("https://i.imgur.com/JXQmcIv.jpeg")}
-                  className="rounded-2xl shadow-xl w-full h-48 object-cover hover:-translate-y-2 transition-transform duration-500 cursor-pointer hover:shadow-2xl" 
+                  className="rounded-2xl shadow-xl w-full h-48 object-cover hover:-translate-y-2 transition-transform duration-500 cursor-pointer hover:shadow-2xl"
                   alt="Baloes"
+                  loading="lazy"
+                  decoding="async"
+                  width={384}
+                  height={192}
                 />
-                <img 
-                  src="https://i.imgur.com/6l8k314.jpeg" 
+                <img
+                  src="https://i.imgur.com/6l8k314.jpeg"
                   onClick={() => setSelectedImage("https://i.imgur.com/6l8k314.jpeg")}
-                  className="rounded-2xl shadow-xl w-full h-64 object-cover hover:-translate-y-2 transition-transform duration-500 cursor-pointer hover:shadow-2xl" 
+                  className="rounded-2xl shadow-xl w-full h-64 object-cover hover:-translate-y-2 transition-transform duration-500 cursor-pointer hover:shadow-2xl"
                   alt="Especial de Natal Confeitaria"
+                  loading="lazy"
+                  decoding="async"
+                  width={512}
+                  height={256}
                 />
               </div>
             </div>
