@@ -6,6 +6,7 @@ import { createLead } from '../services/leads';
 
 const AIAssistant: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
+  const [showConfirmClose, setShowConfirmClose] = useState(false);
   const [isLeadCaptured, setIsLeadCaptured] = useState(false);
   const [leadError, setLeadError] = useState('');
   const [isLeadSubmitting, setIsLeadSubmitting] = useState(false);
@@ -35,6 +36,32 @@ const AIAssistant: React.FC = () => {
     setIsLeadSubmitting(true);
 
     try {
+  // Encerrar chat: limpa estado e fecha
+  const handleEndChat = () => {
+    setIsLeadCaptured(false);
+    setLeadName('');
+    setLeadPhone('');
+    setMessages([]);
+    setIsOpen(false);
+  };
+
+  // Ao clicar no X, pede confirmação
+  const handleRequestClose = () => {
+    if (isLeadCaptured || messages.length > 0) {
+      setShowConfirmClose(true);
+    } else {
+      setIsOpen(false);
+    }
+  };
+
+  const handleConfirmClose = () => {
+    setShowConfirmClose(false);
+    handleEndChat();
+  };
+
+  const handleCancelClose = () => {
+    setShowConfirmClose(false);
+  };
       await createLead({
         name: leadName.trim(),
         phone: leadPhone.trim(),
@@ -93,7 +120,7 @@ const AIAssistant: React.FC = () => {
                 </p>
               </div>
             </div>
-            <button onClick={() => setIsOpen(false)} className="hover:bg-white/10 p-1.5 rounded-full transition-colors relative z-10">
+            <button onClick={handleRequestClose} className="ml-2 p-1 rounded hover:bg-[#fff2] transition-colors">
               <X size={20} />
             </button>
           </div>
