@@ -6,7 +6,6 @@ import { createLead } from '../services/leads';
 
 const AIAssistant: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
-  const [showConfirmClose, setShowConfirmClose] = useState(false);
   const [isLeadCaptured, setIsLeadCaptured] = useState(false);
   const [leadError, setLeadError] = useState('');
   const [isLeadSubmitting, setIsLeadSubmitting] = useState(false);
@@ -37,22 +36,9 @@ const AIAssistant: React.FC = () => {
     setIsOpen(false);
   };
 
-  // Ao clicar no X, pede confirmação
+  // Ao clicar no X, encerra imediatamente
   const handleRequestClose = () => {
-    if (isLeadCaptured || messages.length > 0) {
-      setShowConfirmClose(true);
-    } else {
-      setIsOpen(false);
-    }
-  };
-
-  const handleConfirmClose = () => {
-    setShowConfirmClose(false);
     handleEndChat();
-  };
-
-  const handleCancelClose = () => {
-    setShowConfirmClose(false);
   };
 
   const handleLeadSubmit = async (e: React.FormEvent) => {
