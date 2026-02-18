@@ -1,3 +1,94 @@
+  // --- UNITS REVENUE CHART DATA ---
+  const getUnitsChartData = () => {
+    // Simula dados por unidade para cada período (mensal, semestral, anual)
+    // No futuro, pode ser alimentado por dados reais
+    const periods = {
+      mensal: ['1', '2', '3', '4'],
+      semestral: ['Set', 'Out', 'Nov', 'Dez', 'Jan', 'Fev'],
+      anual: ['Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez', 'Jan', 'Fev']
+    };
+    const labels = periods[chartTimeRange];
+    // Gera arrays de receita por unidade (mock: tudo zerado, mas pronto para dados reais)
+    const units = ['Bangu', 'Campo Grande', 'Duque de Caxias'];
+    // Aqui, cada unidade terá um array de receitas por período
+    const data = units.map(unit => {
+      // No futuro, buscar dados reais por unidade e período
+      return {
+        name: unit,
+        color: unit === 'Bangu' ? '#F59E42' : unit === 'Campo Grande' ? '#22C55E' : '#3B82F6',
+        values: labels.map(() => 0) // tudo zerado inicialmente
+      };
+    });
+    return { labels, data };
+  };
+            {/* --- UNITS REVENUE CURVE CHART --- */}
+            <div className="lg:col-span-3 bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
+                    <div>
+                      <h3 className="font-bold text-gray-800 text-lg">Curva Financeira por Unidade</h3>
+                      <p className="text-xs text-gray-400 mt-1 font-medium">Receita por unidade nos últimos meses</p>
+                    </div>
+                    <div className="flex bg-gray-100/80 p-1 rounded-lg">
+                       {(['mensal', 'semestral', 'anual'] as const).map((range) => (
+                         <button
+                           key={range}
+                           onClick={() => setChartTimeRange(range)}
+                           className={`px-4 py-1.5 rounded-md text-xs font-bold transition-all ${
+                             chartTimeRange === range 
+                               ? 'bg-white text-gray-800 shadow-sm text-[#9A0000]' 
+                               : 'text-gray-500 hover:text-gray-700'
+                           }`}
+                         >
+                           {range.charAt(0).toUpperCase() + range.slice(1)}
+                         </button>
+                       ))}
+                    </div>
+                </div>
+                <div className="relative h-[220px] w-full" key={chartTimeRange+"-units"}>
+                  {/* Simple lines background */}
+                  <div className="absolute inset-0 flex flex-col justify-between pointer-events-none">
+                      {[1, 2, 3, 4, 5].map(i => (
+                          <div key={i} className="border-b border-gray-50 w-full h-full"></div>
+                      ))}
+                  </div>
+                  <svg className="absolute inset-0 h-full w-full overflow-visible" viewBox="0 0 800 220" preserveAspectRatio="none">
+                    {getUnitsChartData().data.map((unit, idx) => {
+                      // Gera path para cada unidade
+                      const values = unit.values;
+                      const maxVal = Math.max(...getUnitsChartData().data.flatMap(u => u.values), 1);
+                      const points = values.map((val, i) => [
+                        (i / (values.length - 1)) * 800,
+                        220 - (val / maxVal) * (220 * 0.7) - (220 * 0.15)
+                      ]);
+                      // Gera path string
+                      const pathD = points.reduce((acc, [x, y], i) => i === 0 ? `M${x},${y}` : `${acc} L${x},${y}`, '');
+                      return (
+                        <g key={unit.name}>
+                          <path d={pathD} fill="none" stroke={unit.color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+                          {points.map(([x, y], i) => (
+                            <circle key={i} cx={x} cy={y} r="4" fill="#fff" stroke={unit.color} strokeWidth="2.5" />
+                          ))}
+                        </g>
+                      );
+                    })}
+                  </svg>
+                  {/* X Axis Labels */}
+                  <div className="absolute bottom-0 left-0 w-full flex justify-between text-[10px] font-bold text-gray-400 translate-y-6 px-2">
+                      {getUnitsChartData().labels.map((label, i) => (
+                          <span key={i}>{label}</span>
+                      ))}
+                  </div>
+                  {/* Legenda */}
+                  <div className="absolute top-2 right-4 flex gap-4">
+                    {getUnitsChartData().data.map(unit => (
+                      <span key={unit.name} className="flex items-center gap-2 text-xs font-bold" style={{color: unit.color}}>
+                        <svg width="16" height="6"><rect width="16" height="6" rx="3" fill={unit.color} /></svg>
+                        {unit.name}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+            </div>
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { 
@@ -61,22 +152,9 @@ interface AdminCourse extends Course {
 // Senha ofuscada "Sonho2412@#!"
 const OBFUSCATED_SECRET = "czBuaDBTb25obzI0MTJAIyE=";
 
-const MOCK_TEACHERS = [
-  { id: 1, name: 'Claudia Thomaz', specialty: 'Confeitaria Artística', instagram: '@claudiathomaz_cake', image: 'https://images.unsplash.com/photo-1577219491135-ce391730fb2c?auto=format&fit=crop&q=80&w=200' },
-  { id: 2, name: 'Luan Gomes', specialty: 'Panificação e Salgados', instagram: '@chefluangomes', image: 'https://images.unsplash.com/photo-1583394838336-acd977736f90?auto=format&fit=crop&q=80&w=200' },
-  { id: 3, name: 'Adriana Balões', specialty: 'Decoração com Balões', instagram: '@adrianabaloes', image: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&q=80&w=200' },
-];
-
-const MOCK_CERT_HISTORY: CertificateLog[] = [
-  { id: 'log-1', studentName: 'Ana Beatriz Souza', courseTitle: 'Bolo no Pote: Lucre o Ano Todo', dateSent: '10/02/2026 14:30', type: 'Original', status: 'Entregue', adminUser: 'Admin' },
-  { id: 'log-2', studentName: 'Roberto Carlos', courseTitle: 'Bolo no Pote: Lucre o Ano Todo', dateSent: '10/02/2026 14:30', type: 'Original', status: 'Entregue', adminUser: 'Admin' },
-  { id: 'log-3', studentName: 'Fernanda Lima', courseTitle: 'Ovos de Páscoa em Pé (Cacau Foods)', dateSent: '05/02/2026 09:15', type: 'Original', status: 'Entregue', adminUser: 'Admin' },
-];
-
-const MOCK_PENDING_REQUESTS: CertRequest[] = [
-  { id: 'req-1', studentName: 'Patricia Poeta', courseTitle: 'Bolo no Pote: Lucre o Ano Todo', dateRequest: 'Hoje, 10:00', reason: 'Perdi o arquivo original' },
-  { id: 'req-2', studentName: 'Carlos Eduardo', courseTitle: 'Confeitaria Básica', dateRequest: 'Ontem, 18:30', reason: 'Nome incorreto (Carlos Eduarto)' }
-];
+const MOCK_TEACHERS: any[] = [];
+const MOCK_CERT_HISTORY: CertificateLog[] = [];
+const MOCK_PENDING_REQUESTS: CertRequest[] = [];
 
 const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, onAddBlogPost }) => {
   // Auth State
@@ -182,9 +260,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
     const locations = ['Bangu', 'Campo Grande', 'Duque de Caxias'] as const;
     return COURSES.map(c => ({
       ...c,
-      capacity: 30, 
-      enrolled: Math.floor(Math.random() * 31),
-      location: locations[Math.floor(Math.random() * locations.length)] // Random location assignment
+      capacity: 30,
+      enrolled: 0, // Zera ocupação
+      location: locations[Math.floor(Math.random() * locations.length)]
     }));
   });
   
@@ -1747,39 +1825,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
                   {/* CERTIFICATES SECTION */}
                   {activeTab === 'certificates' && (
                     <div className="animate-in fade-in duration-300">
-                      {/* PENDING REQUESTS NOTIFICATION PANEL */}
-                      {certRequests.length > 0 && (
-                        <div className="bg-yellow-50 border border-yellow-200 rounded-2xl p-6 mb-8 shadow-sm">
-                          <h3 className="font-bold text-yellow-800 mb-4 flex items-center gap-2">
-                            <BellRing size={20} className="animate-bounce" />
-                            Notificações de Solicitação ({certRequests.length})
-                          </h3>
-                          <div className="space-y-3">
-                            {certRequests.map(req => (
-                              <div key={req.id} className="bg-white p-4 rounded-xl border border-yellow-100 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 shadow-sm">
-                                <div>
-                                  <div className="flex items-center gap-2 mb-1">
-                                    <span className="font-bold text-gray-800">{req.studentName}</span>
-                                    <span className="text-xs text-gray-400">• {req.dateRequest}</span>
-                                  </div>
-                                  <p className="text-sm text-gray-600">
-                                    Curso: <strong>{req.courseTitle}</strong>
-                                  </p>
-                                  <p className="text-sm text-red-500 mt-1 flex items-center gap-1">
-                                    <AlertCircle size={14} /> Motivo: {req.reason}
-                                  </p>
-                                </div>
-                                <button 
-                                  onClick={() => handleOpenResolve(req)}
-                                  className="bg-yellow-100 text-yellow-700 px-4 py-2 rounded-lg font-bold text-sm hover:bg-yellow-200 transition-colors flex items-center gap-2 whitespace-nowrap"
-                                >
-                                  Resolver / Reenviar <ArrowRight size={16} />
-                                </button>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
 
                       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                         
