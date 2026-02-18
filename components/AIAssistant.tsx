@@ -37,9 +37,20 @@ const AIAssistant: React.FC = () => {
   };
 
   // Ao clicar no X, encerra imediatamente
+  const [showConfirmClose, setShowConfirmClose] = useState(false);
+
+  // Ao clicar no X, pede confirmação
   const handleRequestClose = () => {
-    console.log('Botão X clicado');
+    setShowConfirmClose(true);
+  };
+
+  const handleConfirmClose = () => {
+    setShowConfirmClose(false);
     handleEndChat();
+  };
+
+  const handleCancelClose = () => {
+    setShowConfirmClose(false);
   };
 
   const handleLeadSubmit = async (e: React.FormEvent) => {
@@ -89,12 +100,25 @@ const AIAssistant: React.FC = () => {
   return (
     <div className="fixed bottom-4 right-4 md:bottom-6 md:right-6 z-50 font-quicksand">
       {isOpen ? (
-        <div className="bg-white w-[350px] sm:w-[400px] h-[550px] rounded-2xl shadow-2xl flex flex-col border border-slate-100 overflow-hidden animate-in slide-in-from-bottom-5">
+        <div className="bg-white w-[350px] sm:w-[400px] h-[550px] rounded-2xl shadow-2xl flex flex-col border border-slate-100 overflow-hidden animate-in slide-in-from-bottom-5 relative">
+          {/* Modal de confirmação de encerramento */}
+          {showConfirmClose && (
+            <div className="absolute inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
+              <div className="bg-white rounded-xl p-6 shadow-xl max-w-xs w-full text-center z-50">
+                <p className="mb-4 text-lg font-semibold">Deseja encerrar o chat?</p>
+                <p className="mb-6 text-gray-600 text-sm">Ao sair, o histórico deste chat será apagado.</p>
+                <div className="flex gap-3 justify-center">
+                  <button onClick={handleConfirmClose} className="bg-[#9A0000] text-white px-4 py-2 rounded font-bold">Sair</button>
+                  <button onClick={handleCancelClose} className="bg-gray-200 px-4 py-2 rounded font-bold">Continuar</button>
+                </div>
+              </div>
+            </div>
+          )}
           
           {/* Header */}
           <div className="bg-[#9A0000] p-4 flex justify-between items-center text-white relative overflow-hidden">
              {/* Decorative circles */}
-             <div className="absolute -top-2 -right-2 w-16 h-16 bg-white/10 rounded-full blur-xl"></div>
+             <div className="absolute -top-2 -right-2 w-16 h-16 bg-white/10 rounded-full blur-xl pointer-events-none"></div>
             
             <div className="flex items-center gap-3 relative z-10">
               <div className="bg-[#fff304] p-2 rounded-full text-[#9A0000] shadow-sm">
