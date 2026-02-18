@@ -121,7 +121,7 @@ const AIAssistant: React.FC = () => {
               </div>
             </div>
             <button onClick={handleRequestClose} className="ml-2 p-1 rounded hover:bg-[#fff2] transition-colors">
-              <X size={20} />
+              <X size={22} />
             </button>
           </div>
 
