@@ -26,7 +26,7 @@ export async function createLead(payload: LeadPayload) {
     await supabase.functions.invoke('lead-to-sheet', {
       body: {
         name: payload.name,
-        email: payload.email,
+        email: payload.email ?? 'noemail@chat',
         phone: payload.phone,
         source: payload.source ?? 'newsletter_form',
         message: payload.message ?? null,
