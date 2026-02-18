@@ -22,17 +22,16 @@ export async function createLead(payload: LeadPayload) {
     throw error;
   }
 
-  try {
-    await supabase.functions.invoke('lead-to-sheet', {
-      body: {
-        name: payload.name,
-        email: payload.email ?? 'noemail@chat',
-        phone: payload.phone,
-        source: payload.source ?? 'newsletter_form',
-        message: payload.message ?? null,
-      },
-    });
-  } catch (googleError) {
+  // Chamada para o Google Sheets em background, não bloqueia o usuário
+  supabase.functions.invoke('lead-to-sheet', {
+    body: {
+      name: payload.name,
+      email: payload.email ?? 'noemail@chat',
+      phone: payload.phone,
+      source: payload.source ?? 'newsletter_form',
+      message: payload.message ?? null,
+    },
+  }).catch((googleError) => {
     console.error('Erro ao enviar lead para Google Sheets:', googleError);
-  }
+  });
 }
