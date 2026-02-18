@@ -2,7 +2,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { MessageCircle, X, Send, Sparkles, User, Phone, ArrowRight, Lock } from 'lucide-react';
 import { getPartyAdvice } from '../services/gemini';
-import { recordFormSubmission } from '../services/formSubmissions';
+import { createLead } from '../services/leads';
 
 const AIAssistant: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -35,9 +35,10 @@ const AIAssistant: React.FC = () => {
     setIsLeadSubmitting(true);
 
     try {
-      await recordFormSubmission('ai_lead', {
+      await createLead({
         name: leadName.trim(),
         phone: leadPhone.trim(),
+        source: 'ai_lead',
       });
 
       setIsLeadCaptured(true);
