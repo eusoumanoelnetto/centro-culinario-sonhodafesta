@@ -1,88 +1,3 @@
-  // --- UNITS REVENUE CHART DATA ---
-  // (deve estar dentro do componente para acessar chartTimeRange)
-  const getUnitsChartData = () => {
-    const periods = {
-      mensal: ['1', '2', '3', '4'],
-      semestral: ['Set', 'Out', 'Nov', 'Dez', 'Jan', 'Fev'],
-      anual: ['Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez', 'Jan', 'Fev']
-    };
-    const labels = periods[chartTimeRange];
-    const units = ['Bangu', 'Campo Grande', 'Duque de Caxias'];
-    const data = units.map(unit => ({
-      name: unit,
-      color: unit === 'Bangu' ? '#F59E42' : unit === 'Campo Grande' ? '#22C55E' : '#3B82F6',
-      values: labels.map(() => 0)
-    }));
-    return { labels, data };
-  };
-            {/* --- UNITS REVENUE CURVE CHART --- */}
-            <div className="lg:col-span-3 bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
-                    <div>
-                      <h3 className="font-bold text-gray-800 text-lg">Curva Financeira por Unidade</h3>
-                      <p className="text-xs text-gray-400 mt-1 font-medium">Receita por unidade nos últimos meses</p>
-                    </div>
-                    <div className="flex bg-gray-100/80 p-1 rounded-lg">
-                       {(['mensal', 'semestral', 'anual'] as const).map((range) => (
-                         <button
-                           key={range}
-                           onClick={() => setChartTimeRange(range)}
-                           className={`px-4 py-1.5 rounded-md text-xs font-bold transition-all ${
-                             chartTimeRange === range 
-                               ? 'bg-white text-gray-800 shadow-sm text-[#9A0000]' 
-                               : 'text-gray-500 hover:text-gray-700'
-                           }`}
-                         >
-                           {range.charAt(0).toUpperCase() + range.slice(1)}
-                         </button>
-                       ))}
-                    </div>
-                </div>
-                <div className="relative h-[220px] w-full" key={chartTimeRange+"-units"}>
-                  {/* Simple lines background */}
-                  <div className="absolute inset-0 flex flex-col justify-between pointer-events-none">
-                      {[1, 2, 3, 4, 5].map(i => (
-                          <div key={i} className="border-b border-gray-50 w-full h-full"></div>
-                      ))}
-                  </div>
-                  <svg className="absolute inset-0 h-full w-full overflow-visible" viewBox="0 0 800 220" preserveAspectRatio="none">
-                    {getUnitsChartData().data.map((unit, idx) => {
-                      // Gera path para cada unidade
-                      const values = unit.values;
-                      const maxVal = Math.max(...getUnitsChartData().data.flatMap(u => u.values), 1);
-                      const points = values.map((val, i) => [
-                        (i / (values.length - 1)) * 800,
-                        220 - (val / maxVal) * (220 * 0.7) - (220 * 0.15)
-                      ]);
-                      // Gera path string
-                      const pathD = points.reduce((acc, [x, y], i) => i === 0 ? `M${x},${y}` : `${acc} L${x},${y}`, '');
-                      return (
-                        <g key={unit.name}>
-                          <path d={pathD} fill="none" stroke={unit.color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-                          {points.map(([x, y], i) => (
-                            <circle key={i} cx={x} cy={y} r="4" fill="#fff" stroke={unit.color} strokeWidth="2.5" />
-                          ))}
-                        </g>
-                      );
-                    })}
-                  </svg>
-                  {/* X Axis Labels */}
-                  <div className="absolute bottom-0 left-0 w-full flex justify-between text-[10px] font-bold text-gray-400 translate-y-6 px-2">
-                      {getUnitsChartData().labels.map((label, i) => (
-                          <span key={i}>{label}</span>
-                      ))}
-                  </div>
-                  {/* Legenda */}
-                  <div className="absolute top-2 right-4 flex gap-4">
-                    {getUnitsChartData().data.map(unit => (
-                      <span key={unit.name} className="flex items-center gap-2 text-xs font-bold" style={{color: unit.color}}>
-                        <svg width="16" height="6"><rect width="16" height="6" rx="3" fill={unit.color} /></svg>
-                        {unit.name}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-            </div>
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { 
@@ -100,6 +15,82 @@ import { recordFormSubmission } from '../services/formSubmissions';
 import { listStudents, createStudent, updateStudent, deleteStudent, updatePassword } from '../services/students';
 import { supabase, CLIENT_ID } from '../services/supabase';
 import Modal from './Modal';
+
+
+
+  // --- UNITS REVENUE CURVE CHART ---
+  const renderUnitsRevenueChart = () => (
+    <div className="lg:col-span-3 bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
+        <div>
+          <h3 className="font-bold text-gray-800 text-lg">Curva Financeira por Unidade</h3>
+          <p className="text-xs text-gray-400 mt-1 font-medium">Receita por unidade nos últimos meses</p>
+        </div>
+        <div className="flex bg-gray-100/80 p-1 rounded-lg">
+          {(['mensal', 'semestral', 'anual'] as const).map((range) => (
+            <button
+              key={range}
+              onClick={() => setChartTimeRange(range)}
+              className={`px-4 py-1.5 rounded-md text-xs font-bold transition-all ${
+                chartTimeRange === range 
+                  ? 'bg-white text-gray-800 shadow-sm text-[#9A0000]' 
+                  : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              {range.charAt(0).toUpperCase() + range.slice(1)}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div className="relative h-[220px] w-full" key={chartTimeRange+"-units"}>
+        {/* Simple lines background */}
+        <div className="absolute inset-0 flex flex-col justify-between pointer-events-none">
+          {[1, 2, 3, 4, 5].map(i => (
+            <div key={i} className="border-b border-gray-50 w-full h-full"></div>
+          ))}
+        </div>
+        <svg className="absolute inset-0 h-full w-full overflow-visible" viewBox="0 0 800 220" preserveAspectRatio="none">
+          {getUnitsChartData().data.map((unit, idx) => {
+            // Gera path para cada unidade
+            const values = unit.values;
+            const maxVal = Math.max(...getUnitsChartData().data.flatMap(u => u.values), 1);
+            const points = values.map((val, i) => [
+              (i / (values.length - 1)) * 800,
+              220 - (val / maxVal) * (220 * 0.7) - (220 * 0.15)
+            ]);
+            // Gera path string
+            const pathD = points.reduce((acc, [x, y], i) => i === 0 ? `M${x},${y}` : `${acc} L${x},${y}`, '');
+            return (
+              <g key={unit.name}>
+                <path d={pathD} fill="none" stroke={unit.color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+                {points.map(([x, y], i) => (
+                  <circle key={i} cx={x} cy={y} r="4" fill="#fff" stroke={unit.color} strokeWidth="2.5" />
+                ))}
+              </g>
+            );
+          })}
+        </svg>
+        {/* X Axis Labels */}
+        <div className="absolute bottom-0 left-0 w-full flex justify-between text-[10px] font-bold text-gray-400 translate-y-6 px-2">
+          {getUnitsChartData().labels.map((label, i) => (
+            <span key={i}>{label}</span>
+          ))}
+        </div>
+        {/* Legenda */}
+        <div className="absolute top-2 right-4 flex gap-4">
+          {getUnitsChartData().data.map(unit => (
+            <span key={unit.name} className="flex items-center gap-2 text-xs font-bold" style={{color: unit.color}}>
+              <svg width="16" height="6"><rect width="16" height="6" rx="3" fill={unit.color} /></svg>
+              {unit.name}
+            </span>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+
+  // ...existing code...
+
 
 interface AdminDashboardProps {
   onBack: () => void;
@@ -864,9 +855,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
 
     return (
         <div className="space-y-8 animate-in fade-in duration-700 font-inter">
-            {/* KPI Cards - Modern SaaS Style */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                {[
+          {/* KPI Cards - Modern SaaS Style */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            {[
                   { 
                     label: "Receita Total", 
                     value: `R$ ${metrics.totalRevenue.toFixed(2)}`, 
@@ -942,7 +933,10 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
                      </div>
                   </div>
                 ))}
+
             </div>
+            {/* Curva Financeira por Unidade */}
+            {renderUnitsRevenueChart()}
 
             {/* --- UNIT PERFORMANCE & COURSE RANKING SECTION --- */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -1209,91 +1203,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
     // ... (Login form code)
     return (
       <div className="min-h-screen bg-[#2c3e50] flex items-center justify-center p-4 font-quicksand">
-        {/* ... (Login UI Code) ... */}
-        <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl p-8 relative overflow-hidden animate-in zoom-in-95 duration-300">
-          <button onClick={onBack} className="absolute top-4 left-4 text-gray-400 hover:text-gray-600 transition-colors">
-            <ArrowLeft size={24} />
-          </button>
-          <div className="text-center mb-8 mt-4">
-            <div className="w-16 h-16 bg-[#9A0000] rounded-2xl mx-auto flex items-center justify-center text-white mb-4 shadow-lg transform rotate-3">
-              <Lock size={32} />
-            </div>
-            <h2 className="text-2xl font-serif font-bold text-gray-800">Acesso Restrito</h2>
-            <p className="text-gray-500 text-sm">Área administrativa Sonho da Festa</p>
-          </div>
-          <form onSubmit={handleLogin} className="space-y-6">
-            <div className="space-y-2">
-              <label className="text-xs font-bold text-gray-500 uppercase ml-1">Senha de Acesso</label>
-              <div className="relative">
-                <Lock size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                <input 
-                  type={showPassword ? "text" : "password"}
-                  value={passwordInput}
-                  onChange={(e) => { setPasswordInput(e.target.value); setAuthError(false); }}
-                  className={`w-full pl-10 pr-12 py-3 rounded-xl border ${authError ? 'border-red-500 bg-red-50' : 'border-gray-200 bg-gray-50'} focus:border-[#9A0000] outline-none transition-all text-gray-900 bg-white`}
-                  placeholder="Digite a senha..."
-                  autoFocus
-                />
-                <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
-                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                </button>
-              </div>
-              {authError && <p className="text-xs text-red-500 font-bold ml-1 animate-pulse">Senha incorreta.</p>}
-            </div>
-            <button type="submit" disabled={!passwordInput || isCheckingAuth} className="w-full bg-[#9A0000] text-white py-4 rounded-xl font-bold hover:bg-[#7a0000] transition-all shadow-lg flex items-center justify-center gap-2 disabled:opacity-70">
-              {isCheckingAuth ? <Loader2 size={20} className="animate-spin" /> : <>Entrar no Painel <ArrowLeft size={18} className="rotate-180" /></>}
-            </button>
-          </form>
-        </div>
-      </div>
-    );
-  }
-
-  // --- RENDER TABLES ---
-  // (Mantido igual ao original, omitido para brevidade)
-  const renderCoursesTable = () => (
-    // ... (Existing implementation)
-    <div className="overflow-x-auto">
-      <table className="w-full text-left border-collapse">
-        <thead>
-          <tr className="border-b border-gray-100 text-xs font-bold text-gray-500 uppercase tracking-wider">
-            <th className="p-4">Curso</th>
-            <th className="p-4">Ocupação</th>
-            <th className="p-4">Preço</th>
-            <th className="p-4 text-right">Ações</th>
-          </tr>
-        </thead>
-        <tbody className="text-sm text-gray-700">
-          {coursesList.map(course => {
-            const percentage = (course.enrolled / course.capacity) * 100;
-            let statusColor = 'bg-red-500';
-            
-            if (percentage >= 70) {
-              statusColor = 'bg-green-500';
-            } else if (percentage >= 30) {
-              statusColor = 'bg-yellow-500';
-            }
-
-            return (
-              <tr key={course.id} className="border-b border-gray-50 hover:bg-gray-50 transition-colors">
-                <td className="p-4 flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-lg overflow-hidden bg-gray-100 flex-shrink-0">
-                    <img src={course.image} alt="" className="w-full h-full object-cover" />
-                  </div>
-                  <div>
-                    <span className="font-bold text-gray-900 line-clamp-1">{course.title}</span>
-                    <span className="text-xs text-gray-500 block">{course.instructor} • {course.location}</span>
-                  </div>
-                </td>
-                <td className="p-4 w-48">
-                  <div className="flex justify-between items-center mb-1 text-xs">
-                    <span className="font-bold text-gray-700">{course.enrolled}/{course.capacity}</span>
-                    <span className={`${percentage < 30 ? 'text-red-600 font-bold' : 'text-gray-500'}`}>{percentage.toFixed(0)}%</span>
-                  </div>
-                  <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
-                    <div className={`h-full rounded-full transition-all duration-1000 ${statusColor}`} style={{ width: `${percentage}%` }}></div>
-                  </div>
-                  {percentage < 30 && (
                     <button 
                       onClick={() => handleNotifyTeacher(course)}
                       className="mt-2 text-[10px] flex items-center gap-1 text-red-600 bg-red-50 px-2 py-1 rounded hover:bg-red-100 transition-colors w-fit"
