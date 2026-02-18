@@ -28,6 +28,7 @@ import {
   Gift, Egg, Heart, Baby, Flower, User, MessageCircle, Lock, Cookie, Facebook
 } from 'lucide-react';
 import { recordFormSubmission } from './services/formSubmissions';
+import { createLead } from './services/leads';
 import { fetchCartData, upsertCartItem, updateCartItemStatus, appendCartHistory, deleteCartHistoryByAction } from './services/cart';
 
 const App: React.FC = () => {
@@ -507,7 +508,10 @@ const App: React.FC = () => {
     };
 
     try {
-      await recordFormSubmission('newsletter', payload);
+      await createLead({
+        ...payload,
+        source: 'newsletter_form',
+      });
       form.reset();
       setLeadStatus('success');
       setLeadFeedback('Cadastro realizado! Em breve você receberá nossas novidades.');
