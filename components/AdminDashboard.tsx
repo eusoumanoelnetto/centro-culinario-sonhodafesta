@@ -220,15 +220,16 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
   const handleDeleteAdminRequest = async (requestId: string) => {
     try {
       const { error } = await supabase
-        .from('form_submissions')
+        .from('admin_solicitacoes')
         .delete()
-        .eq('id', requestId)
-        .eq('client_id', CLIENT_ID);
+        .eq('id', requestId);
 
       if (error) throw error;
 
       setAdminRequests(prev => prev.filter(req => req.id !== requestId));
       setModal({ isOpen: true, type: 'success', message: 'Solicitação excluída com sucesso!' });
+      // Recarregar solicitações para garantir atualização
+      await loadAdminRequests();
     } catch (error) {
       console.error('Erro ao excluir solicitação', error);
       setModal({ isOpen: true, type: 'error', message: 'Não foi possível excluir a solicitação.' });
@@ -580,16 +581,17 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
     const resolvedAt = new Date().toISOString();
     try {
       const { error } = await supabase
-        .from('form_submissions')
-        .update({ resolved_at: resolvedAt })
-        .eq('id', requestId)
-        .eq('client_id', CLIENT_ID);
+        .from('admin_solicitacoes')
+        .update({ status: 'resolvido', resolvido_em: resolvedAt })
+        .eq('id', requestId);
 
       if (error) throw error;
 
       setAdminRequests(prev => prev.map(req =>
-        req.id === requestId ? { ...req, resolvedAt } : req
+        req.id === requestId ? { ...req, resolvedAt, status: 'resolvido' } : req
       ));
+      // Recarregar solicitações para garantir atualização
+      await loadAdminRequests();
     } catch (error) {
       console.error('Erro ao marcar solicitacao como resolvida', error);
       setModal({ isOpen: true, type: 'error', message: 'Nao foi possivel marcar como resolvido.' });
