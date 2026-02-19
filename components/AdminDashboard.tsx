@@ -1748,13 +1748,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
                                 <div>
                                   <div className="flex items-center gap-2 mb-1">
                                     <span className="font-bold text-gray-800">{req.email}</span>
-                                    <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-[#fff304] text-[#9A0000]">
-                                      {req.type === 'password_reset_request'
-                                        ? 'Reset de senha'
-                                        : req.type === 'data_change_request'
-                                        ? 'Correcao de dados'
-                                        : 'Certificado'}
-                                    </span>
                                     <span className="text-xs text-gray-400">{new Date(req.createdAt).toLocaleString('pt-BR')}</span>
                                   </div>
                                   <p className="text-sm text-gray-600">{req.message}</p>
@@ -1801,13 +1794,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
                                 <div key={req.id} className="bg-white p-3 rounded-lg border border-gray-100 text-xs text-gray-600 flex flex-col md:flex-row md:items-center md:justify-between gap-2">
                                   <div>
                                     <span className="font-bold text-gray-700">{req.email}</span>
-                                    <span className="ml-2 text-[10px] px-2 py-0.5 rounded-full font-bold bg-gray-100 text-gray-600">
-                                      {req.type === 'password_reset_request'
-                                        ? 'Reset de senha'
-                                        : req.type === 'data_change_request'
-                                        ? 'Correcao de dados'
-                                        : 'Certificado'}
-                                    </span>
                                   </div>
                                   <div className="text-[10px] text-gray-400">
                                     Resolvido em: {req.resolvedAt ? new Date(req.resolvedAt).toLocaleString('pt-BR') : 'N/A'}
