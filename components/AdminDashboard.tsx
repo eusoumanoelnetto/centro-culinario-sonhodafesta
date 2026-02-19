@@ -376,12 +376,50 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
   };
 
   // --- UNITS REVENUE CURVE CHART ---
-  const renderUnitsRevenueChart = () => (
-    <div className="lg:col-span-3 bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-      {/* Gráfico de receita por unidade temporariamente desativado para evitar erro de referência */}
-      <div className="text-gray-500 text-center py-12">Gráfico de receita por unidade indisponível no momento.</div>
-    </div>
-  );
+  const renderUnitsRevenueChart = () => {
+    const handleUnitClick = (unit: 'Bangu' | 'Campo Grande' | 'Duque de Caxias' | 'Geral') => {
+      setSelectedUnitStats(unit);
+    };
+
+    const calculateRevenue = (unit: 'Bangu' | 'Campo Grande' | 'Duque de Caxias' | 'Geral') => {
+      if (unit === 'Geral') {
+        return coursesList.reduce((total, course) => total + course.price * course.enrolled, 0);
+      }
+      return coursesList
+        .filter(course => course.location === unit)
+        .reduce((total, course) => total + course.price * course.enrolled, 0);
+    };
+
+    const revenue = calculateRevenue(selectedUnitStats);
+
+    return (
+      <div className="lg:col-span-3 bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-lg font-bold text-gray-800">Receita por Unidade</h3>
+          <div className="flex gap-2">
+            {['Bangu', 'Campo Grande', 'Duque de Caxias', 'Geral'].map((unit) => (
+              <button
+                key={unit}
+                onClick={() => handleUnitClick(unit as 'Bangu' | 'Campo Grande' | 'Duque de Caxias' | 'Geral')}
+                className={`px-4 py-2 rounded-lg font-medium transition-all ${
+                  selectedUnitStats === unit
+                    ? 'bg-[#9A0000] text-white'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                {unit}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="text-center py-12">
+          <h4 className="text-2xl font-bold text-gray-800">R$ {revenue.toFixed(2)}</h4>
+          <p className="text-gray-500">Receita total da unidade selecionada</p>
+        </div>
+      </div>
+    );
+  };
 
   // --- Security Logic ---
   const handleLogin = async (e: React.FormEvent) => {
