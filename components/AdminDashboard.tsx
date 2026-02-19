@@ -68,6 +68,8 @@ const MOCK_PENDING_REQUESTS: CertRequest[] = [];
 
 // ==================== COMPONENTE PRINCIPAL ====================
 const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, onAddBlogPost }) => {
+  // Estado para modal de detalhes de solicitação resolvida
+  const [selectedRequestForDetails, setSelectedRequestForDetails] = useState<AdminRequest | null>(null);
   // Auth State
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [passwordInput, setPasswordInput] = useState("");
@@ -1721,7 +1723,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
                       <div id="admin-requests" className="bg-white border border-gray-200 rounded-2xl p-6 mb-8 shadow-sm">
                         <div className="flex items-center justify-between mb-4">
                           <h3 className="font-bold text-gray-800 flex items-center gap-2">
-                            <BellRing size={18} className="text-[#9A0000]" /> Solicitacoes
+                            <BellRing size={18} className="text-[#9A0000]" /> Solicitações
                           </h3>
                           <button
                             onClick={loadAdminRequests}
@@ -1739,20 +1741,31 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
 
                         {isLoadingRequests ? (
                           <div className="text-sm text-gray-500 flex items-center gap-2">
-                            <Loader2 size={16} className="animate-spin" /> Carregando solicitacoes...
+                            <Loader2 size={16} className="animate-spin" /> Carregando solicitações...
                           </div>
                         ) : pendingAdminRequests.length > 0 ? (
                           <div className="space-y-3">
                             {pendingAdminRequests.map(req => (
                               <div key={req.id} className="bg-gray-50 p-4 rounded-xl border border-gray-100 flex flex-col md:flex-row gap-4 md:items-center md:justify-between">
-                                <div>
-                                  <div className="flex items-center gap-2 mb-1">
+                                <div className="flex-1">
+                                  <div className="flex items-center gap-2 mb-1 flex-wrap">
                                     <span className="font-bold text-gray-800">{req.email}</span>
-                                    <span className="text-xs text-gray-400">{new Date(req.createdAt).toLocaleString('pt-BR')}</span>
+                                    {req.type !== 'certificate_request' && (
+                                      <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${
+                                        req.type === 'password_reset_request' ? 'bg-yellow-100 text-yellow-700' :
+                                        req.type === 'data_change_request' ? 'bg-blue-100 text-blue-700' : ''
+                                      }`}>
+                                        {req.type === 'password_reset_request' ? '🔐 Reset de senha' :
+                                         req.type === 'data_change_request' ? '✏️ Correção de dados' : ''}
+                                      </span>
+                                    )}
+                                    <span className="text-xs text-gray-400">
+                                      {new Date(req.createdAt).toLocaleString('pt-BR')}
+                                    </span>
                                   </div>
-                                  <p className="text-sm text-gray-600">{req.message}</p>
+                                  <p className="text-sm text-gray-600 line-clamp-2">{req.message}</p>
                                 </div>
-                                <div className="flex gap-2">
+                                <div className="flex gap-2 shrink-0">
                                   {req.type === 'password_reset_request' ? (
                                     <button
                                       onClick={() => handleResetPasswordToCpf(req.email, req.id)}
@@ -1780,32 +1793,81 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
                             ))}
                           </div>
                         ) : (
-                          <div className="text-sm text-gray-500">Nenhuma solicitacao pendente.</div>
+                          <div className="text-sm text-gray-500">Nenhuma solicitação pendente.</div>
                         )}
 
+                        {/* Histórico de solicitações resolvidas */}
                         <div className="mt-6 pt-6 border-t border-gray-100">
-                          <div className="flex items-center justify-between mb-3">
-                            <h4 className="text-sm font-bold text-gray-700">Historico de solicitacoes resolvidas</h4>
-                            <span className="text-[10px] text-gray-400">{resolvedAdminRequests.length} registros</span>
-                          </div>
-                          {resolvedAdminRequests.length > 0 ? (
-                            <div className="space-y-2">
-                              {resolvedAdminRequests.map(req => (
-                                <div key={req.id} className="bg-white p-3 rounded-lg border border-gray-100 text-xs text-gray-600 flex flex-col md:flex-row md:items-center md:justify-between gap-2">
-                                  <div>
-                                    <span className="font-bold text-gray-700">{req.email}</span>
-                                  </div>
-                                  <div className="text-[10px] text-gray-400">
-                                    Resolvido em: {req.resolvedAt ? new Date(req.resolvedAt).toLocaleString('pt-BR') : 'N/A'}
-                                  </div>
+                          {(() => {
+                            const allCert = resolvedAdminRequests.length > 0 && resolvedAdminRequests.every(req => req.type === 'certificate_request');
+                            return (
+                              <>
+                                <div className="flex items-center justify-between mb-3">
+                                  <h4 className="text-sm font-bold text-gray-700">{allCert ? 'Histórico de solicitações de Certificado' : 'Histórico de solicitações resolvidas'}</h4>
+                                  <span className="text-[10px] text-gray-400">{resolvedAdminRequests.length} registros</span>
                                 </div>
-                              ))}
-                            </div>
-                          ) : (
-                            <div className="text-xs text-gray-400">Nenhum historico ainda.</div>
-                          )}
+                                {resolvedAdminRequests.length > 0 ? (
+                                  <div className="space-y-2">
+                                    {resolvedAdminRequests.map(req => (
+                                      <div key={req.id} className="bg-white p-3 rounded-lg border border-gray-100 text-xs text-gray-600 flex flex-col md:flex-row md:items-center md:justify-between gap-2">
+                                        <div className="flex items-center gap-2 flex-wrap">
+                                          {allCert ? null : req.type !== 'certificate_request' && (
+                                            <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${
+                                              req.type === 'password_reset_request' ? 'bg-yellow-100 text-yellow-700' :
+                                              req.type === 'data_change_request' ? 'bg-blue-100 text-blue-700' : ''
+                                            }`}>
+                                              {req.type === 'password_reset_request' ? '🔐 Reset de senha' :
+                                               req.type === 'data_change_request' ? '✏️ Correção de dados' : ''}
+                                            </span>
+                                          )}
+                                          <span className="font-bold text-gray-700">{req.email}</span>
+                                          <span className="text-[10px] text-gray-400">
+                                            {req.resolvedAt ? new Date(req.resolvedAt).toLocaleString('pt-BR') : ''}
+                                          </span>
+                                        </div>
+                                        <button
+                                          onClick={() => setSelectedRequestForDetails(req)}
+                                          className="text-[#9A0000] hover:text-[#7a0000] text-xs font-bold flex items-center gap-1"
+                                        >
+                                          <Eye size={14} /> Ver detalhes
+                                        </button>
+                                      </div>
+                                    ))}
+                                  </div>
+                                ) : (
+                                  <div className="text-xs text-gray-400">Nenhum histórico ainda.</div>
+                                )}
+                              </>
+                            );
+                          })()}
                         </div>
                       </div>
+
+                      {/* Modal de detalhes da solicitação resolvida */}
+                      {selectedRequestForDetails && (
+                        <Modal
+                          isOpen={true}
+                          onClose={() => setSelectedRequestForDetails(null)}
+                          type="info"
+                          title="Detalhes da solicitação"
+                          message={
+                            <div className="space-y-3 text-sm">
+                              <p><span className="font-bold">E-mail:</span> {selectedRequestForDetails.email}</p>
+                              <p><span className="font-bold">Tipo:</span> {
+                                selectedRequestForDetails.type === 'password_reset_request' ? 'Reset de senha' :
+                                selectedRequestForDetails.type === 'data_change_request' ? 'Correção de dados' :
+                                'Solicitação de certificado'
+                              }</p>
+                              <p><span className="font-bold">Data da solicitação:</span> {new Date(selectedRequestForDetails.createdAt).toLocaleString('pt-BR')}</p>
+                              <p><span className="font-bold">Data de resolução:</span> {selectedRequestForDetails.resolvedAt ? new Date(selectedRequestForDetails.resolvedAt).toLocaleString('pt-BR') : 'N/A'}</p>
+                              <div>
+                                <span className="font-bold">Mensagem:</span>
+                                <p className="mt-1 p-3 bg-gray-50 rounded-lg whitespace-pre-wrap">{selectedRequestForDetails.message}</p>
+                              </div>
+                            </div>
+                          }
+                        />
+                      )}
                     </div>
                   )}
                   
