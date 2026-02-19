@@ -124,32 +124,21 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
 
     try {
       const { data, error } = await supabase
-        .from('form_submissions')
-        .select('id, form_type, payload, created_at, resolved_at')
-        .eq('client_id', CLIENT_ID)
-        .in('form_type', ['password_reset_request', 'data_change_request', 'certificate_request'])
-        .order('created_at', { ascending: false });
+        .from('admin_solicitacoes')
+        .select('id, email, tipo, detalhes, status, criado_em, resolvido_em')
+        .order('criado_em', { ascending: false });
 
       if (error) throw error;
 
-      const mapped = (data || []).map((row: any) => {
-        const payload = row.payload || {};
-        const message =
-          row.form_type === 'certificate_request'
-            ? `Curso: ${payload.course || payload.courseTitle || 'N/A'} | Motivo: ${payload.reason || payload.requestDescription || 'N/A'}`
-            : payload.message || payload.note || 'Sem detalhes';
-
-        return {
-          id: row.id,
-          type: row.form_type,
-          email: payload.email || payload.studentEmail || 'Nao informado',
-          message,
-          createdAt: row.created_at,
-          resolvedAt: row.resolved_at || null,
-          courseTitle: payload.courseTitle,
-          requestType: payload.requestType,
-        } as AdminRequest;
-      });
+      const mapped = (data || []).map((row: any) => ({
+        id: row.id,
+        type: row.tipo,
+        email: row.email,
+        message: row.detalhes || 'Sem detalhes',
+        createdAt: row.criado_em,
+        resolvedAt: row.resolvido_em || null,
+        status: row.status,
+      }));
 
       setAdminRequests(mapped);
     } catch (error) {
@@ -1665,8 +1654,12 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
                   onClick={handleOpenRequests}
                   className={`w-full flex items-center gap-3 p-4 rounded-xl text-sm font-bold transition-all ${activeTab === 'requests' ? 'bg-[#9A0000] text-white shadow-md' : 'text-gray-600 hover:bg-gray-50'}`}
                 >
-                  <BellRing size={20} />Solicitações
-                  </button>
+                  <BellRing size={20} />
+                  <span className="flex-1">Solicitações</span>
+                  {adminRequestsCount > 0 && (
+                    <span className="bg-red-500 text-white text-[10px] px-1.5 py-0.5 rounded-full animate-pulse ml-2">{adminRequestsCount}</span>
+                  )}
+                </button>
               </div>
             </div>
           </div>

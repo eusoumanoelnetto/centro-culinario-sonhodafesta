@@ -22,11 +22,13 @@ export async function recordFormSubmission(
   formType: FormSubmissionType,
   payload: FormSubmissionPayload
 ) {
-  const { error } = await supabase.from('form_submissions').insert([
+  const { email, detalhes, tipo } = payload
+  const { error } = await supabase.from('admin_solicitacoes').insert([
     {
-      client_id: CLIENT_ID,
-      form_type: formType,
-      payload,
+      email: email || payload.studentEmail || '',
+      detalhes: detalhes || payload.message || payload.note || '',
+      tipo: formType,
+      status: 'pendente',
     },
   ])
 
