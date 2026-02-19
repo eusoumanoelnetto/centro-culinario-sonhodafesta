@@ -1,3 +1,23 @@
+    // Excluir solicitação administrativa
+    const handleDeleteAdminRequest = async (requestId: string) => {
+      try {
+        const { error } = await supabase
+          .from('form_submissions')
+          .delete()
+          .eq('id', requestId)
+          .eq('client_id', CLIENT_ID);
+
+        if (error) {
+          throw error;
+        }
+
+        setAdminRequests(prev => prev.filter(req => req.id !== requestId));
+        setModal({ isOpen: true, type: 'success', message: 'Solicitação excluída com sucesso!' });
+      } catch (error) {
+        console.error('Erro ao excluir solicitação', error);
+        setModal({ isOpen: true, type: 'error', message: 'Não foi possível excluir a solicitação.' });
+      }
+    };
   // Renderiza todos os cursos com barra de progresso de ocupação
   const renderCoursesTable = () => (
     <div className="space-y-4">
@@ -1658,6 +1678,13 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
                                       Marcar como resolvido
                                     </button>
                                   )}
+                                  <button
+                                    onClick={() => handleDeleteAdminRequest(req.id)}
+                                    className="bg-red-600 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-red-700 transition-colors"
+                                    title="Excluir solicitação"
+                                  >
+                                    Excluir
+                                  </button>
                                 </div>
                               </div>
                             ))}
