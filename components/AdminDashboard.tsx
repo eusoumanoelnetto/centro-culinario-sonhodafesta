@@ -1,3 +1,29 @@
+  // Renderiza todos os cursos com barra de progresso de ocupação
+  const renderCoursesTable = () => (
+    <div className="space-y-4">
+      {coursesList.length === 0 && (
+        <div className="text-gray-400 text-center py-8">Nenhum curso cadastrado.</div>
+      )}
+      {coursesList.map((course) => {
+        const percent = course.capacity > 0 ? Math.round((course.enrolled / course.capacity) * 100) : 0;
+        return (
+          <div key={course.id} className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div>
+              <div className="font-bold text-lg text-gray-800">{course.title}</div>
+              <div className="text-xs text-gray-500 mb-2">{course.enrolled} de {course.capacity} vagas preenchidas</div>
+              <div className="w-full bg-gray-100 rounded-full h-3 overflow-hidden">
+                <div
+                  className="h-3 rounded-full bg-[#9A0000] transition-all"
+                  style={{ width: percent + '%', minWidth: percent > 0 ? '8px' : 0 }}
+                ></div>
+              </div>
+              <div className="text-xs text-gray-600 mt-1">{percent}% ocupado</div>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { 
@@ -1569,7 +1595,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
                   )}
 
                   {activeTab === 'metrics' && renderMetricsDashboard()}
-                  {/* {activeTab === 'courses' && renderCoursesTable()} */}
+                  {activeTab === 'courses' && renderCoursesTable()}
                   {activeTab === 'students' && renderStudentsTable()}
                   {activeTab === 'teachers' && renderTeachersTable()}
                   {activeTab === 'blog' && renderBlogTable()}
