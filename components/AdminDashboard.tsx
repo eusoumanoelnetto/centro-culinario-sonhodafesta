@@ -1,30 +1,4 @@
-    // Excluir solicitação administrativa
-    const handleDeleteAdminRequest = async (requestId: string) => {
-      try {
-        const { error } = await supabase
-          .from('form_submissions')
-          .delete()
-          .eq('id', requestId)
-          .eq('client_id', CLIENT_ID);
-
-        if (error) {
-          throw error;
-        }
-
-        setAdminRequests(prev => prev.filter(req => req.id !== requestId));
-        setModal({ isOpen: true, type: 'success', message: 'Solicitação excluída com sucesso!' });
-      } catch (error) {
-        console.error('Erro ao excluir solicitação', error);
-        setModal({ isOpen: true, type: 'error', message: 'Não foi possível excluir a solicitação.' });
-      }
-    };
-
-  // ...existing code...
-
-
-  // ...existing code...
-
-
+// ==================== IMPORTS (NO TOPO) ====================
 import React, { useState, useEffect, useCallback } from 'react';
 import { 
   ArrowLeft, Plus, BookOpen, GraduationCap, Save, X, CheckCircle2, 
@@ -42,19 +16,7 @@ import { listStudents, createStudent, updateStudent, deleteStudent, updatePasswo
 import { supabase, CLIENT_ID } from '../services/supabase';
 import Modal from './Modal';
 
-
-
-  // --- UNITS REVENUE CURVE CHART ---
-  const renderUnitsRevenueChart = () => (
-    <div className="lg:col-span-3 bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-      {/* Gráfico de receita por unidade temporariamente desativado para evitar erro de referência */}
-      <div className="text-gray-500 text-center py-12">Gráfico de receita por unidade indisponível no momento.</div>
-    </div>
-  );
-
-  // ...existing code...
-
-
+// ==================== CONSTANTES E INTERFACES (FORA DO COMPONENTE) ====================
 interface AdminDashboardProps {
   onBack: () => void;
   onAddCourse?: (course: Course) => void;
@@ -94,7 +56,7 @@ interface AdminRequest {
 interface AdminCourse extends Course {
   capacity: number;
   enrolled: number;
-  location: 'Bangu' | 'Campo Grande' | 'Duque de Caxias'; // Novo campo
+  location: 'Bangu' | 'Campo Grande' | 'Duque de Caxias';
 }
 
 // Senha ofuscada "Sonho2412@#!"
@@ -104,6 +66,7 @@ const MOCK_TEACHERS: any[] = [];
 const MOCK_CERT_HISTORY: CertificateLog[] = [];
 const MOCK_PENDING_REQUESTS: CertRequest[] = [];
 
+// ==================== COMPONENTE PRINCIPAL ====================
 const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, onAddBlogPost }) => {
   // Auth State
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -114,7 +77,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
 
   // Dashboard Navigation State
   const [activeTab, setActiveTab] = useState<'metrics' | 'courses' | 'students' | 'teachers' | 'blog' | 'certificates' | 'requests'>('metrics');
-  const [viewMode, setViewMode] = useState<'list' | 'form'>('list'); // 'list' para tabela, 'form' para edição/criação
+  const [viewMode, setViewMode] = useState<'list' | 'form'>('list');
   const [isSuccess, setIsSuccess] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
 
@@ -167,9 +130,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
         .in('form_type', ['password_reset_request', 'data_change_request', 'certificate_request'])
         .order('created_at', { ascending: false });
 
-      if (error) {
-        throw error;
-      }
+      if (error) throw error;
 
       const mapped = (data || []).map((row: any) => {
         const payload = row.payload || {};
@@ -209,7 +170,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
     return COURSES.map(c => ({
       ...c,
       capacity: 30,
-      enrolled: 0, // Zera ocupação
+      enrolled: 0,
       location: locations[Math.floor(Math.random() * locations.length)]
     }));
   });
@@ -249,8 +210,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
   // General Modal State
   const [modal, setModal] = useState<{ isOpen: boolean; type: 'success' | 'error' | 'warning' | 'confirm'; title?: string; message: string; onConfirm?: () => void } | null>(null);
 
-  // Form States (Genéricos para reaproveitar ou específicos)
-  const [editingId, setEditingId] = useState<string | number | null>(null); // Se null, é criação. Se tem ID, é edição.
+  // Form States
+  const [editingId, setEditingId] = useState<string | number | null>(null);
 
   // Estados dos Formulários
   const [courseData, setCourseData] = useState({
@@ -261,6 +222,64 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
   const [blogData, setBlogData] = useState({ title: '', author: '', category: 'Dicas', content: '', tags: '' });
   
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
+
+  // ========== FUNÇÕES AUXILIARES (AGORA DENTRO DO COMPONENTE) ==========
+
+  // Excluir solicitação administrativa
+  const handleDeleteAdminRequest = async (requestId: string) => {
+    try {
+      const { error } = await supabase
+        .from('form_submissions')
+        .delete()
+        .eq('id', requestId)
+        .eq('client_id', CLIENT_ID);
+
+      if (error) throw error;
+
+      setAdminRequests(prev => prev.filter(req => req.id !== requestId));
+      setModal({ isOpen: true, type: 'success', message: 'Solicitação excluída com sucesso!' });
+    } catch (error) {
+      console.error('Erro ao excluir solicitação', error);
+      setModal({ isOpen: true, type: 'error', message: 'Não foi possível excluir a solicitação.' });
+    }
+  };
+
+  // Renderiza todos os cursos com barra de progresso de ocupação
+  const renderCoursesTable = () => {
+    if (!coursesList || coursesList.length === 0) {
+      return <div className="text-gray-400 text-center py-8">Nenhum curso cadastrado.</div>;
+    }
+    return (
+      <div className="space-y-4">
+        {coursesList.map((course) => {
+          const percent = course.capacity > 0 ? Math.round((course.enrolled / course.capacity) * 100) : 0;
+          return (
+            <div key={course.id} className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+              <div>
+                <div className="font-bold text-lg text-gray-800">{course.title}</div>
+                <div className="text-xs text-gray-500 mb-2">{course.enrolled} de {course.capacity} vagas preenchidas</div>
+                <div className="w-full bg-gray-100 rounded-full h-3 overflow-hidden">
+                  <div
+                    className="h-3 rounded-full bg-[#9A0000] transition-all"
+                    style={{ width: percent + '%', minWidth: percent > 0 ? '8px' : 0 }}
+                  ></div>
+                </div>
+                <div className="text-xs text-gray-600 mt-1">{percent}% ocupado</div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
+
+  // --- UNITS REVENUE CURVE CHART ---
+  const renderUnitsRevenueChart = () => (
+    <div className="lg:col-span-3 bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+      {/* Gráfico de receita por unidade temporariamente desativado para evitar erro de referência */}
+      <div className="text-gray-500 text-center py-12">Gráfico de receita por unidade indisponível no momento.</div>
+    </div>
+  );
 
   // --- Security Logic ---
   const handleLogin = async (e: React.FormEvent) => {
@@ -357,7 +376,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
     }
     setIsSendingCerts(true);
     setTimeout(() => {
-      // Mock logic...
       setIsSendingCerts(false);
       showSuccess(`${selectedStudentsForCert.length} certificados enviados com sucesso!`);
       setSelectedCertCourse("");
@@ -436,9 +454,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
         .eq('id', requestId)
         .eq('client_id', CLIENT_ID);
 
-      if (error) {
-        throw error;
-      }
+      if (error) throw error;
 
       setAdminRequests(prev => prev.map(req =>
         req.id === requestId ? { ...req, resolvedAt } : req
@@ -519,7 +535,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
     const totalStudents = coursesList.reduce((acc, curr) => acc + curr.enrolled, 0);
     const totalRevenue = coursesList.reduce((acc, curr) => acc + (curr.price * curr.enrolled), 0);
     
-    // Teacher Ranking
     const teacherStats = teachersList.map(teacher => {
         const teacherCourses = coursesList.filter(c => c.instructor === teacher.name);
         const students = teacherCourses.reduce((acc, curr) => acc + curr.enrolled, 0);
@@ -533,7 +548,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
         };
     }).sort((a, b) => b.students - a.students);
 
-    // Unit Performance
     const unitStats = ['Bangu', 'Campo Grande', 'Duque de Caxias'].map(location => {
         const unitCourses = coursesList.filter(c => c.location === location);
         const students = unitCourses.reduce((acc, curr) => acc + curr.enrolled, 0);
@@ -546,7 +560,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
             revenue,
             topCourses: unitCourses.sort((a, b) => b.enrolled - a.enrolled).slice(0, 3)
         };
-    }).sort((a, b) => b.revenue - a.revenue); // Sort by revenue to find winner
+    }).sort((a, b) => b.revenue - a.revenue);
 
     const funnel = {
         active: studentsList.filter(s => s.status === 'Ativo').length,
@@ -718,7 +732,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
         email: studentData.email.trim(),
         cpf: normalizedCpf || undefined,
         whatsapp: studentData.whatsapp?.trim() || undefined,
-        password: normalizedCpf || undefined, // CPF vira senha padrão
+        password: normalizedCpf || undefined,
         firstAccess: true,
         status: normalizedStatus,
         course: normalizedCourse ? normalizedCourse : undefined,
@@ -818,7 +832,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
 
     return (
         <div className="space-y-8 animate-in fade-in duration-700 font-inter">
-          {/* KPI Cards - Modern SaaS Style */}
+          {/* KPI Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             {[
                   { 
@@ -855,21 +869,16 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
                   },
                 ].map((kpi, idx) => (
                   <div key={idx} className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-all duration-300 flex flex-col justify-between h-full group">
-                     {/* Header: Label & Icon */}
                      <div className="flex justify-between items-start mb-4">
                         <span className="text-sm font-medium text-gray-500 uppercase tracking-wide">{kpi.label}</span>
                         <div className={`p-2.5 rounded-xl ${kpi.bgIcon} transition-colors`}>
                           <kpi.icon size={20} />
                         </div>
                      </div>
-                     
-                     {/* Value */}
                      <div className="flex flex-col">
                         <h3 className="text-3xl font-bold text-gray-900 tracking-tight leading-none font-inter">
                           {kpi.value}
                         </h3>
-                        
-                        {/* Context/Footer */}
                         <div className="mt-4 flex items-center min-h-[20px]">
                            {kpi.trend && (
                              <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold ${kpi.trendColor}`}>
@@ -886,8 +895,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
                              </span>
                            )}
                         </div>
-
-                        {/* Visual Progress Bar if needed */}
                         {kpi.progress !== undefined && (
                           <div className="w-full h-1.5 bg-gray-100 rounded-full mt-4 overflow-hidden">
                             <div className="h-full bg-purple-500 rounded-full transition-all duration-1000" style={{width: `${kpi.progress}%`}}></div>
@@ -901,10 +908,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
             {/* Curva Financeira por Unidade */}
             {renderUnitsRevenueChart()}
 
-            {/* --- UNIT PERFORMANCE & COURSE RANKING SECTION --- */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                
-                {/* 1. Desempenho por Unidade */}
                 <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm flex flex-col">
                     <div className="flex justify-between items-center mb-6">
                         <h3 className="font-bold text-gray-800 text-lg flex items-center gap-2">
@@ -952,7 +956,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
                     </div>
                 </div>
 
-                {/* 2. Top Cursos da Unidade Selecionada */}
                 <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm flex flex-col h-full">
                     <div className="flex justify-between items-center mb-6">
                         <div>
@@ -1006,7 +1009,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                {/* Revenue Curve Chart */}
                 <div className="lg:col-span-2 bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
                     <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
                         <div>
@@ -1032,7 +1034,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
                     </div>
                     
                     <div className="relative h-[220px] w-full" key={chartTimeRange}>
-                        {/* Simple lines background */}
                         <div className="absolute inset-0 flex flex-col justify-between pointer-events-none">
                             {[1, 2, 3, 4, 5].map(i => (
                                 <div key={i} className="border-b border-gray-50 w-full h-full"></div>
@@ -1054,7 +1055,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
                                 return (
                                     <g key={i} className="group/dot">
                                       <circle cx={x} cy={y} r="4" fill="#fff" stroke="#9A0000" strokeWidth="2.5" className="cursor-pointer hover:r-6 transition-all" />
-                                      {/* Tooltip positioned above */}
                                       <foreignObject x={x - 40} y={y - 50} width="80" height="40" className="opacity-0 group-hover/dot:opacity-100 transition-opacity pointer-events-none">
                                         <div className="bg-gray-900 text-white text-[10px] font-bold py-1.5 px-2 rounded-lg text-center shadow-xl transform translate-y-1 font-inter">
                                           R$ {val}
@@ -1065,7 +1065,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
                             })}
                         </svg>
                         
-                        {/* X Axis Labels */}
                         <div className="absolute bottom-0 left-0 w-full flex justify-between text-[10px] font-bold text-gray-400 translate-y-6 px-2">
                             {chartDataObj.labels.map((label, i) => (
                                 <span key={i}>{label}</span>
@@ -1074,7 +1073,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
                     </div>
                 </div>
 
-                {/* Status Distribution */}
                 <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col justify-between">
                     <h3 className="font-bold text-gray-800 text-lg mb-6 flex items-center gap-2">
                       <PieChart size={18} className="text-gray-400" />
@@ -1116,7 +1114,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
                 </div>
             </div>
 
-            {/* Teacher Performance Table */}
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
                 <div className="p-6 border-b border-gray-50 flex justify-between items-center">
                     <h3 className="font-bold text-gray-800 text-lg">Instrutores</h3>
@@ -1161,7 +1158,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
   };
 
   // --- LOGIN SCREEN ---
-  // Se o usuário não estiver autenticado, renderiza uma tela de login simples
   if (!isAuthenticated) {
     return (
       <div className="min-h-screen bg-[#2c3e50] flex items-center justify-center p-4 font-quicksand">
@@ -1201,17 +1197,15 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
     );
   }
 
-  // ... (Other render functions: renderStudentsTable, renderTeachersTable, renderBlogTable remain the same)
+  // --- RENDER STUDENTS TABLE ---
   const renderStudentsTable = () => {
-    // ... (Existing Code)
     const students = getFilteredStudents();
     return (
       <>
         {/* CRM DASHBOARD SECTION */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8 animate-in fade-in duration-500">
           <div className="bg-[#fffbe5] p-5 rounded-2xl border border-[#fff304] relative overflow-hidden">
-            {/* ... (Existing Content) ... */}
-             <div className="absolute right-0 top-0 opacity-10 transform translate-x-4 -translate-y-2">
+            <div className="absolute right-0 top-0 opacity-10 transform translate-x-4 -translate-y-2">
               <Megaphone size={100} className="text-[#9A0000]" />
             </div>
             <h3 className="text-[#9A0000] font-bold text-lg mb-1">Recuperação de Vendas</h3>
@@ -1224,9 +1218,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
               <Zap size={14} /> Ver Oportunidades
             </button>
           </div>
-          {/* ... (Other CRM Cards) ... */}
-           <div className="bg-green-50 p-5 rounded-2xl border border-green-200 relative overflow-hidden">
-             <div className="absolute right-0 top-0 opacity-10 transform translate-x-4 -translate-y-2">
+          <div className="bg-green-50 p-5 rounded-2xl border border-green-200 relative overflow-hidden">
+            <div className="absolute right-0 top-0 opacity-10 transform translate-x-4 -translate-y-2">
               <UserCheck size={100} className="text-green-600" />
             </div>
             <h3 className="text-green-800 font-bold text-lg mb-1">Ex-Alunos (Leads Quentes)</h3>
@@ -1239,7 +1232,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
               <Users size={14} /> Oferecer Novidades
             </button>
           </div>
-
           <div className="bg-white p-5 rounded-2xl border border-gray-100 flex flex-col justify-center items-center text-center">
             <div className="bg-gray-100 p-3 rounded-full mb-3">
               <UserPlus size={24} className="text-gray-500" />
@@ -1388,8 +1380,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
     );
   };
 
+  // --- RENDER TEACHERS TABLE ---
   const renderTeachersTable = () => (
-    // ... (Existing Table Code)
     <div className="overflow-x-auto">
       <table className="w-full text-left border-collapse">
         <thead>
@@ -1422,8 +1414,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
     </div>
   );
 
+  // --- RENDER BLOG TABLE ---
   const renderBlogTable = () => (
-    // ... (Existing Table Code)
     <div className="overflow-x-auto">
       <table className="w-full text-left border-collapse">
         <thead>
@@ -1499,6 +1491,12 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
                   <BarChart3 size={20} /> Visão Geral
                 </button>
                 <button
+                  onClick={() => { setActiveTab('courses'); setViewMode('list'); }}
+                  className={`w-full flex items-center gap-3 p-4 rounded-xl text-sm font-bold transition-all ${activeTab === 'courses' ? 'bg-[#9A0000] text-white shadow-md' : 'text-gray-600 hover:bg-gray-50'}`}
+                >
+                  <GraduationCap size={20} /> Cursos
+                </button>
+                <button
                   onClick={() => { setActiveTab('students'); setViewMode('list'); }}
                   className={`w-full flex items-center gap-3 p-4 rounded-xl text-sm font-bold transition-all ${activeTab === 'students' ? 'bg-[#9A0000] text-white shadow-md' : 'text-gray-600 hover:bg-gray-50'}`}
                 >
@@ -1557,6 +1555,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
                   <div className="flex flex-col md:flex-row justify-between items-center mb-8 gap-4">
                     <h2 className="text-2xl font-bold text-gray-800 font-serif flex items-center gap-2">
                       {activeTab === 'metrics' && 'Visão Geral & Métricas'}
+                      {activeTab === 'courses' && 'Gerenciar Cursos'}
                       {activeTab === 'students' && 'Gerenciar Alunos & Leads'}
                       {activeTab === 'teachers' && 'Gerenciar Professores'}
                       {activeTab === 'blog' && 'Gerenciar Blog'}
@@ -1570,6 +1569,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
                         className="bg-[#9A0000] text-white px-6 py-2.5 rounded-xl font-bold hover:bg-[#7a0000] transition-all shadow-lg flex items-center gap-2"
                       >
                         <Plus size={20} />
+                        {activeTab === 'courses' && 'Novo Curso'}
                         {activeTab === 'teachers' && 'Novo Professor'}
                         {activeTab === 'blog' && 'Nova Publicação'}
                       </button>
@@ -1587,6 +1587,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
                   )}
 
                   {activeTab === 'metrics' && renderMetricsDashboard()}
+                  {activeTab === 'courses' && renderCoursesTable()}
                   {activeTab === 'students' && renderStudentsTable()}
                   {activeTab === 'teachers' && renderTeachersTable()}
                   {activeTab === 'blog' && renderBlogTable()}
