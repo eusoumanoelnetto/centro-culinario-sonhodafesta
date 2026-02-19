@@ -244,27 +244,129 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
     }
   };
 
-  // Renderiza todos os cursos com barra de progresso de ocupação
+  // Renderiza todos os cursos com barra de progresso de ocupação e ações
   const renderCoursesTable = () => {
     if (!coursesList || coursesList.length === 0) {
-      return <div className="text-gray-400 text-center py-8">Nenhum curso cadastrado.</div>;
+      return (
+        <div className="text-center py-16 bg-white rounded-2xl border border-dashed border-gray-200">
+          <div className="inline-flex items-center justify-center w-20 h-20 bg-gray-100 rounded-full mb-4">
+            <BookOpen size={32} className="text-gray-400" />
+          </div>
+          <h3 className="text-xl font-bold text-gray-700 mb-2">Nenhum curso cadastrado</h3>
+          <p className="text-gray-500 mb-6">Comece adicionando um novo curso ao catálogo.</p>
+          <button
+            onClick={handleAddNew}
+            className="inline-flex items-center gap-2 bg-[#9A0000] text-white px-6 py-3 rounded-xl font-bold hover:bg-[#7a0000] transition-all shadow-lg"
+          >
+            <Plus size={20} />
+            Adicionar Curso
+          </button>
+        </div>
+      );
     }
+
     return (
       <div className="space-y-4">
         {coursesList.map((course) => {
           const percent = course.capacity > 0 ? Math.round((course.enrolled / course.capacity) * 100) : 0;
+          const occupancyColor =
+            percent < 30 ? 'bg-green-500' :
+            percent < 60 ? 'bg-yellow-500' :
+            percent < 90 ? 'bg-orange-500' : 'bg-red-600';
+
           return (
-            <div key={course.id} className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-              <div>
-                <div className="font-bold text-lg text-gray-800">{course.title}</div>
-                <div className="text-xs text-gray-500 mb-2">{course.enrolled} de {course.capacity} vagas preenchidas</div>
+            <div
+              key={course.id}
+              className="group bg-white rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-all duration-200 overflow-hidden"
+            >
+              {/* Cabeçalho do card com título e ações */}
+              <div className="p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-gray-50 bg-gray-50/30">
+                <div className="flex-1 min-w-0">
+                  <h3 className="font-bold text-lg text-gray-800 truncate" title={course.title}>
+                    {course.title}
+                  </h3>
+                  <p className="text-sm text-gray-500 flex items-center gap-1 mt-1">
+                    <User size={14} className="text-gray-400" />
+                    {course.instructor}
+                    {course.location && (
+                      <>
+                        <span className="mx-1">•</span>
+                        <MapPin size={14} className="text-gray-400" />
+                        {course.location}
+                      </>
+                    )}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    onClick={() => handleEdit(course, 'course')}
+                    className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                    title="Editar curso"
+                  >
+                    <Edit size={18} />
+                  </button>
+                  <button
+                    onClick={() => handleDelete(course.id, 'course')}
+                    className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                    title="Excluir curso"
+                  >
+                    <Trash2 size={18} />
+                  </button>
+                  <button
+                    onClick={() => handleNotifyTeacher(course)}
+                    className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+                    title="Notificar professor por WhatsApp"
+                  >
+                    <MessageCircle size={18} />
+                  </button>
+                </div>
+              </div>
+
+              {/* Corpo do card: informações de ocupação */}
+              <div className="p-5">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-3">
+                  <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-1.5">
+                      <Users size={16} className="text-gray-400" />
+                      <span className="text-sm font-medium text-gray-700">
+                        {course.enrolled} / {course.capacity} vagas
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <TrendingUp size={16} className="text-gray-400" />
+                      <span className="text-sm font-medium text-gray-700">{percent}% ocupado</span>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                      Receita prevista
+                    </span>
+                    <div className="font-bold text-[#9A0000] text-lg font-inter">
+                      R$ {(course.price * course.enrolled).toFixed(2)}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Barra de progresso */}
                 <div className="w-full bg-gray-100 rounded-full h-3 overflow-hidden">
                   <div
-                    className="h-3 rounded-full bg-[#9A0000] transition-all"
+                    className={`h-3 rounded-full ${occupancyColor} transition-all duration-500`}
                     style={{ width: percent + '%', minWidth: percent > 0 ? '8px' : 0 }}
-                  ></div>
+                  />
                 </div>
-                <div className="text-xs text-gray-600 mt-1">{percent}% ocupado</div>
+
+                {/* Mini estatísticas extras (opcional) */}
+                <div className="mt-4 flex flex-wrap gap-3 text-xs text-gray-500">
+                  <span className="inline-flex items-center gap-1">
+                    <Calendar size={12} /> {course.date || 'Data não definida'}
+                  </span>
+                  <span className="inline-flex items-center gap-1">
+                    <DollarSign size={12} /> R$ {course.price} (por aluno)
+                  </span>
+                  <span className="inline-flex items-center gap-1">
+                    <Tag size={12} /> {course.category}
+                  </span>
+                </div>
               </div>
             </div>
           );
