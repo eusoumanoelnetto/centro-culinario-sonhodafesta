@@ -18,32 +18,12 @@
         setModal({ isOpen: true, type: 'error', message: 'Não foi possível excluir a solicitação.' });
       }
     };
-  // Renderiza todos os cursos com barra de progresso de ocupação
-  const renderCoursesTable = () => (
-    <div className="space-y-4">
-      {coursesList.length === 0 && (
-        <div className="text-gray-400 text-center py-8">Nenhum curso cadastrado.</div>
-      )}
-      {coursesList.map((course) => {
-        const percent = course.capacity > 0 ? Math.round((course.enrolled / course.capacity) * 100) : 0;
-        return (
-          <div key={course.id} className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-            <div>
-              <div className="font-bold text-lg text-gray-800">{course.title}</div>
-              <div className="text-xs text-gray-500 mb-2">{course.enrolled} de {course.capacity} vagas preenchidas</div>
-              <div className="w-full bg-gray-100 rounded-full h-3 overflow-hidden">
-                <div
-                  className="h-3 rounded-full bg-[#9A0000] transition-all"
-                  style={{ width: percent + '%', minWidth: percent > 0 ? '8px' : 0 }}
-                ></div>
-              </div>
-              <div className="text-xs text-gray-600 mt-1">{percent}% ocupado</div>
-            </div>
-          </div>
-        );
-      })}
-    </div>
-  );
+
+  // ...existing code...
+
+
+  // ...existing code...
+
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { 
@@ -1519,12 +1499,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
                   <BarChart3 size={20} /> Visão Geral
                 </button>
                 <button
-                  onClick={() => { setActiveTab('courses'); setViewMode('list'); }}
-                  className={`w-full flex items-center gap-3 p-4 rounded-xl text-sm font-bold transition-all ${activeTab === 'courses' ? 'bg-[#9A0000] text-white shadow-md' : 'text-gray-600 hover:bg-gray-50'}`}
-                >
-                  <GraduationCap size={20} /> Cursos
-                </button>
-                <button
                   onClick={() => { setActiveTab('students'); setViewMode('list'); }}
                   className={`w-full flex items-center gap-3 p-4 rounded-xl text-sm font-bold transition-all ${activeTab === 'students' ? 'bg-[#9A0000] text-white shadow-md' : 'text-gray-600 hover:bg-gray-50'}`}
                 >
@@ -1583,7 +1557,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
                   <div className="flex flex-col md:flex-row justify-between items-center mb-8 gap-4">
                     <h2 className="text-2xl font-bold text-gray-800 font-serif flex items-center gap-2">
                       {activeTab === 'metrics' && 'Visão Geral & Métricas'}
-                      {activeTab === 'courses' && 'Gerenciar Cursos'}
                       {activeTab === 'students' && 'Gerenciar Alunos & Leads'}
                       {activeTab === 'teachers' && 'Gerenciar Professores'}
                       {activeTab === 'blog' && 'Gerenciar Blog'}
@@ -1597,7 +1570,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
                         className="bg-[#9A0000] text-white px-6 py-2.5 rounded-xl font-bold hover:bg-[#7a0000] transition-all shadow-lg flex items-center gap-2"
                       >
                         <Plus size={20} />
-                        {activeTab === 'courses' && 'Novo Curso'}
                         {activeTab === 'teachers' && 'Novo Professor'}
                         {activeTab === 'blog' && 'Nova Publicação'}
                       </button>
@@ -1615,7 +1587,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
                   )}
 
                   {activeTab === 'metrics' && renderMetricsDashboard()}
-                  {activeTab === 'courses' && renderCoursesTable()}
                   {activeTab === 'students' && renderStudentsTable()}
                   {activeTab === 'teachers' && renderTeachersTable()}
                   {activeTab === 'blog' && renderBlogTable()}
