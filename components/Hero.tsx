@@ -54,8 +54,10 @@ const Hero: React.FC<HeroProps> = ({ onViewCatalog }) => {
             <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-4 pt-12">
                 <img
-                  src="https://i.imgur.com/u7804Ci.jpeg"
-                  onClick={() => setSelectedImage("https://i.imgur.com/u7804Ci.jpeg")}
+                  src="/assets/hero1.webp"
+                  srcSet="/assets/hero1.webp 640w, https://i.imgur.com/u7804Ci.jpeg 640w, /assets/hero1.webp 1024w, https://i.imgur.com/u7804Cil.jpeg 1024w"
+                  sizes="(max-width: 640px) 100vw, 50vw"
+                  onClick={() => setSelectedImage("/assets/hero1.webp")}
                   className="rounded-2xl shadow-xl w-full h-64 object-cover hover:-translate-y-2 transition-transform duration-500 cursor-pointer hover:shadow-2xl"
                   alt="Bolo decorado"
                   loading="eager"
@@ -65,8 +67,10 @@ const Hero: React.FC<HeroProps> = ({ onViewCatalog }) => {
                   height={256}
                 />
                  <img
-                  src="https://i.imgur.com/LidmkBE.jpeg"
-                  onClick={() => setSelectedImage("https://i.imgur.com/LidmkBE.jpeg")}
+                  src="/assets/hero2.webp"
+                  srcSet="/assets/hero2.webp 640w, https://i.imgur.com/LidmkBE.jpeg 640w, /assets/hero2.webp 1024w, https://i.imgur.com/LidmkBEl.jpeg 1024w"
+                  sizes="(max-width: 640px) 100vw, 25vw"
+                  onClick={() => setSelectedImage("/assets/hero2.webp")}
                   className="rounded-2xl shadow-xl w-full h-48 object-cover hover:-translate-y-2 transition-transform duration-500 cursor-pointer hover:shadow-2xl"
                   alt="Confeitaria e Cupcakes"
                   loading="lazy"
@@ -77,8 +81,10 @@ const Hero: React.FC<HeroProps> = ({ onViewCatalog }) => {
               </div>
               <div className="space-y-4">
                 <img
-                  src="https://i.imgur.com/JXQmcIv.jpeg"
-                  onClick={() => setSelectedImage("https://i.imgur.com/JXQmcIv.jpeg")}
+                  src="/assets/hero3.webp"
+                  srcSet="/assets/hero3.webp 640w, https://i.imgur.com/JXQmcIv.jpeg 640w, /assets/hero3.webp 1024w, https://i.imgur.com/JXQmcIvl.jpeg 1024w"
+                  sizes="(max-width: 640px) 100vw, 25vw"
+                  onClick={() => setSelectedImage("/assets/hero3.webp")}
                   className="rounded-2xl shadow-xl w-full h-48 object-cover hover:-translate-y-2 transition-transform duration-500 cursor-pointer hover:shadow-2xl"
                   alt="Baloes"
                   loading="lazy"
@@ -87,8 +93,10 @@ const Hero: React.FC<HeroProps> = ({ onViewCatalog }) => {
                   height={192}
                 />
                 <img
-                  src="https://i.imgur.com/6l8k314.jpeg"
-                  onClick={() => setSelectedImage("https://i.imgur.com/6l8k314.jpeg")}
+                  src="/assets/hero4.webp"
+                  srcSet="/assets/hero4.webp 640w, https://i.imgur.com/6l8k314.jpeg 640w, /assets/hero4.webp 1024w, https://i.imgur.com/6l8k314l.jpeg 1024w"
+                  sizes="(max-width: 640px) 100vw, 25vw"
+                  onClick={() => setSelectedImage("/assets/hero4.webp")}
                   className="rounded-2xl shadow-xl w-full h-64 object-cover hover:-translate-y-2 transition-transform duration-500 cursor-pointer hover:shadow-2xl"
                   alt="Especial de Natal Confeitaria"
                   loading="lazy"

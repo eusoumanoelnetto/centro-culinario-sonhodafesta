@@ -21,71 +21,8 @@ import Modal from './Modal';
   // --- UNITS REVENUE CURVE CHART ---
   const renderUnitsRevenueChart = () => (
     <div className="lg:col-span-3 bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
-        <div>
-          <h3 className="font-bold text-gray-800 text-lg">Curva Financeira por Unidade</h3>
-          <p className="text-xs text-gray-400 mt-1 font-medium">Receita por unidade nos últimos meses</p>
-        </div>
-        <div className="flex bg-gray-100/80 p-1 rounded-lg">
-          {(['mensal', 'semestral', 'anual'] as const).map((range) => (
-            <button
-              key={range}
-              onClick={() => setChartTimeRange(range)}
-              className={`px-4 py-1.5 rounded-md text-xs font-bold transition-all ${
-                chartTimeRange === range 
-                  ? 'bg-white text-gray-800 shadow-sm text-[#9A0000]' 
-                  : 'text-gray-500 hover:text-gray-700'
-              }`}
-            >
-              {range.charAt(0).toUpperCase() + range.slice(1)}
-            </button>
-          ))}
-        </div>
-      </div>
-      <div className="relative h-[220px] w-full" key={chartTimeRange+"-units"}>
-        {/* Simple lines background */}
-        <div className="absolute inset-0 flex flex-col justify-between pointer-events-none">
-          {[1, 2, 3, 4, 5].map(i => (
-            <div key={i} className="border-b border-gray-50 w-full h-full"></div>
-          ))}
-        </div>
-        <svg className="absolute inset-0 h-full w-full overflow-visible" viewBox="0 0 800 220" preserveAspectRatio="none">
-          {getUnitsChartData().data.map((unit, idx) => {
-            // Gera path para cada unidade
-            const values = unit.values;
-            const maxVal = Math.max(...getUnitsChartData().data.flatMap(u => u.values), 1);
-            const points = values.map((val, i) => [
-              (i / (values.length - 1)) * 800,
-              220 - (val / maxVal) * (220 * 0.7) - (220 * 0.15)
-            ]);
-            // Gera path string
-            const pathD = points.reduce((acc, [x, y], i) => i === 0 ? `M${x},${y}` : `${acc} L${x},${y}`, '');
-            return (
-              <g key={unit.name}>
-                <path d={pathD} fill="none" stroke={unit.color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-                {points.map(([x, y], i) => (
-                  <circle key={i} cx={x} cy={y} r="4" fill="#fff" stroke={unit.color} strokeWidth="2.5" />
-                ))}
-              </g>
-            );
-          })}
-        </svg>
-        {/* X Axis Labels */}
-        <div className="absolute bottom-0 left-0 w-full flex justify-between text-[10px] font-bold text-gray-400 translate-y-6 px-2">
-          {getUnitsChartData().labels.map((label, i) => (
-            <span key={i}>{label}</span>
-          ))}
-        </div>
-        {/* Legenda */}
-        <div className="absolute top-2 right-4 flex gap-4">
-          {getUnitsChartData().data.map(unit => (
-            <span key={unit.name} className="flex items-center gap-2 text-xs font-bold" style={{color: unit.color}}>
-              <svg width="16" height="6"><rect width="16" height="6" rx="3" fill={unit.color} /></svg>
-              {unit.name}
-            </span>
-          ))}
-        </div>
-      </div>
+      {/* Gráfico de receita por unidade temporariamente desativado para evitar erro de referência */}
+      <div className="text-gray-500 text-center py-12">Gráfico de receita por unidade indisponível no momento.</div>
     </div>
   );
 
@@ -1205,9 +1142,34 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
         <div className="bg-white p-8 rounded-lg shadow-md w-full max-w-md text-center">
           <h2 className="text-2xl font-bold mb-2">Painel Administrativo</h2>
           <p className="text-sm text-gray-600 mb-4">Faça login para acessar as funcionalidades administrativas.</p>
-          <div className="mt-4">
-            <button className="px-4 py-2 bg-[#9A0000] text-white rounded-lg">Entrar</button>
-          </div>
+          <form className="mt-4" onSubmit={handleLogin}>
+            <div className="relative mb-3">
+              <input
+                type={showPassword ? "text" : "password"}
+                placeholder="Senha"
+                value={passwordInput}
+                onChange={e => setPasswordInput(e.target.value)}
+                className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#9A0000] pr-12"
+                autoFocus
+              />
+              <button
+                type="button"
+                tabIndex={-1}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                onClick={() => setShowPassword(v => !v)}
+                aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
+              >
+                {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+              </button>
+            </div>
+            {authError && (
+              <div className="text-red-600 text-xs mb-2">Senha incorreta. Tente novamente.</div>
+            )}
+            <button type="submit" className="px-4 py-2 bg-[#9A0000] text-white rounded-lg w-full disabled:opacity-60" disabled={isCheckingAuth}>
+              {isCheckingAuth ? <Loader2 className="animate-spin inline-block mr-2" size={18} /> : null}
+              Entrar
+            </button>
+          </form>
         </div>
       </div>
     );
@@ -1607,7 +1569,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
                   )}
 
                   {activeTab === 'metrics' && renderMetricsDashboard()}
-                  {activeTab === 'courses' && renderCoursesTable()}
+                  {/* {activeTab === 'courses' && renderCoursesTable()} */}
                   {activeTab === 'students' && renderStudentsTable()}
                   {activeTab === 'teachers' && renderTeachersTable()}
                   {activeTab === 'blog' && renderBlogTable()}
