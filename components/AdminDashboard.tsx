@@ -1659,22 +1659,14 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
                   onClick={() => { setActiveTab('certificates'); setViewMode('list'); }}
                   className={`w-full flex items-center gap-3 p-4 rounded-xl text-sm font-bold transition-all ${activeTab === 'certificates' ? 'bg-[#9A0000] text-white shadow-md' : 'text-gray-600 hover:bg-gray-50'}`}
                 >
-                  <Award size={20} />
-                  <span className="flex-1">Certificação</span>
-                  {certRequestsCount > 0 && (
-                    <span className="bg-red-500 text-white text-[10px] px-1.5 py-0.5 rounded-full animate-pulse">{certRequestsCount}</span>
-                  )}
+                  <Award size={20} /> Certificação
                 </button>
                 <button
                   onClick={handleOpenRequests}
                   className={`w-full flex items-center gap-3 p-4 rounded-xl text-sm font-bold transition-all ${activeTab === 'requests' ? 'bg-[#9A0000] text-white shadow-md' : 'text-gray-600 hover:bg-gray-50'}`}
                 >
-                  <BellRing size={20} />
-                  <span className="flex-1">Solicitações</span>
-                  {adminRequestsCount > 0 && (
-                    <span className="bg-red-500 text-white text-[10px] px-1.5 py-0.5 rounded-full animate-pulse">{adminRequestsCount}</span>
-                  )}
-                </button>
+                  <BellRing size={20} />Solicitações
+                  </button>
               </div>
             </div>
           </div>
