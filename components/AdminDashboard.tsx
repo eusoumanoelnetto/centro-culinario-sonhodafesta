@@ -221,18 +221,18 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
     try {
       const { error } = await supabase
         .from('admin_solicitacoes')
-        .delete()
+        .update({ status: 'removido' })
         .eq('id', requestId);
 
       if (error) throw error;
 
       setAdminRequests(prev => prev.filter(req => req.id !== requestId));
-      setModal({ isOpen: true, type: 'success', message: 'Solicitação excluída com sucesso!' });
+      setModal({ isOpen: true, type: 'success', message: 'Solicitação marcada como removida com sucesso!' });
       // Recarregar solicitações para garantir atualização
       await loadAdminRequests();
     } catch (error) {
-      console.error('Erro ao excluir solicitação', error);
-      setModal({ isOpen: true, type: 'error', message: 'Não foi possível excluir a solicitação.' });
+      console.error('Erro ao remover solicitação', error);
+      setModal({ isOpen: true, type: 'error', message: 'Não foi possível remover a solicitação.' });
     }
   };
 
