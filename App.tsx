@@ -101,10 +101,9 @@ const App: React.FC = () => {
     return syncPromise;
   };
 
-  // Carregar usuário e página atual do localStorage ao inicializar
+  // Carregar usuário e favoritos do localStorage ao inicializar
   useEffect(() => {
     const savedUser = localStorage.getItem('user_session');
-    const savedView = localStorage.getItem('current_view');
     const savedFavorites = localStorage.getItem('user_favorites');
     
     if (savedUser) {
@@ -144,12 +143,9 @@ const App: React.FC = () => {
         localStorage.removeItem('user_session');
       }
     }
-    
-    if (savedView && savedUser) {
-      // Só restaura a view se houver uma sessão ativa
-      setCurrentView(savedView as any);
-      console.log('📄 Página restaurada:', savedView);
-    }
+    // NÃO restaura a view automaticamente!
+    // A navegação inicial respeita a URL digitada pelo usuário
+    // currentView inicia como 'home' (ou rota pública)
   }, []);
 
   // Load cart and history from localStorage
@@ -159,84 +155,92 @@ const App: React.FC = () => {
     if (savedCart) {
       try {
         const rawCart = JSON.parse(savedCart);
-        if (Array.isArray(rawCart)) {
-          const normalizedCart: CartItem[] = rawCart.map((item: any, index: number) => {
-            const rawCourseId: string | undefined = item.courseId ?? item.id ?? item?.course?.id;
-            const inferredCourseId = typeof rawCourseId === 'string' && rawCourseId.length > 0
-              ? rawCourseId
-              : `legacy-course-${index}`;
+        // Proteção de rota: só renderiza AdminDashboard se usuário estiver autenticado e navegou explicitamente para admin
+        const renderContent = () => {
+          switch (currentView) {
+            case 'units':
+              return <Units onBack={() => handleNavigate('home')} />;
+            case 'admin':
+              // Proteção: só renderiza painel se usuário for admin
+              if (user && user.email && user.name && user.studentId) {
+                return (
+                  <AdminDashboard 
+                    onBack={() => handleNavigate('home')} 
+                    onAddCourse={handleAddCourse}
+                    onAddBlogPost={handleAddBlogPost}
+                  />
+                );
+              } else {
+                // Se não autenticado, volta para home
+                setCurrentView('home');
+                return <Hero onViewCatalog={() => handleNavigate('catalog')} />;
+              }
+            case 'checkout':
+              return (
+                <CheckoutPage 
+                  cartItems={cart}
+                  onRemoveItem={removeFromCart}
+                  onSuccess={handleCheckoutSuccess}
+                  onBack={() => handleNavigate('catalog')}
+                />
+              );
+            case 'details':
+              return selectedCourse ? (
+                <CourseDetails 
+                  course={selectedCourse} 
+                  onBack={() => handleNavigate('home')} 
+                  onAddToCart={initiateCoursePurchase}
+                />
+              ) : null;
+            case 'presencial':
+              return <PresencialCourses onBack={() => handleNavigate('home')} onCourseClick={initiateCoursePurchase} />;
+            case 'catalog':
+              return (
+                <Catalog 
+                  onBack={() => handleNavigate('home')} 
+                  onCourseClick={handleCourseClick} 
+                  initialCategory={activeCategory === 'Todos' ? undefined : activeCategory}
+                  courses={courses}
+                  favorites={favorites}
+                  onToggleFavorite={handleToggleFavorite}
+                />
+              );
+            case 'blog':
+              return <Blog onBack={() => handleNavigate('home')} posts={blogPosts} />;
+            case 'teacher-application':
+              return <TeacherApplication onBack={() => handleNavigate('home')} />;
+            case 'contact':
+              return <Contact onBack={() => handleNavigate('home')} />;
+            case 'profile':
+              return (
+                <UserDashboard 
+                  onBack={() => handleNavigate('home')} 
+                  onNavigate={handleNavigate}
+                  user={user}
+                  onLogin={handleLogin}
+                  onLogout={handleLogout}
+                  onRate={handleRateCourse}
+                  favorites={favorites}
+                  allCourses={courses}
+                  onCourseClick={handleCourseClick}
+                  cartHistory={cartHistory}
+                />
+              );
+            case 'privacy':
+              return <PrivacyPolicy onBack={() => handleNavigate('home')} />;
+            case 'cookies':
+              return <CookiePolicy onBack={() => handleNavigate('home')} />;
+            case 'home':
+            default:
+              return (
+                <>
+                  <Hero onViewCatalog={() => handleNavigate('catalog')} />
 
-            const mergedCourse = resolveCourseSnapshot(inferredCourseId, {
-              ...item,
-              ...item?.course,
-              id: inferredCourseId,
-            });
-
-            return {
-              ...mergedCourse,
-              selectedSeat: item.selectedSeat ?? mergedCourse.selectedSeat,
-              cartItemId: item.cartItemId ?? `cart-${inferredCourseId}-${index}`,
-              status: item.status ?? 'active',
-              persisted: Boolean(item.persisted),
-            } satisfies CartItem;
-          });
-
-          setCart(normalizedCart);
-          console.log('🛒 Carrinho restaurado:', normalizedCart.length, 'itens');
-        }
-      } catch (error) {
-        console.error('Erro ao restaurar carrinho:', error);
-      }
-    }
-
-    const savedHistory = localStorage.getItem('cart_history');
-
-    if (savedHistory) {
-      try {
-        const historyData = JSON.parse(savedHistory);
-        if (Array.isArray(historyData)) {
-          const normalizedHistory: CartHistoryEvent[] = historyData.map((item: any, index: number) => {
-            const courseId = item.courseId ?? item?.course?.id ?? `legacy-history-course-${index}`;
-            return {
-              id: item.id ?? `history-${index}`,
-              cartItemId: item.cartItemId ?? item.courseId ?? item.id ?? `legacy-${index}`,
-              courseId,
-              action: item.action ?? 'added',
-              course: resolveCourseSnapshot(courseId, item.course ?? item.snapshot ?? item),
-              timestamp: item.timestamp ? new Date(item.timestamp) : new Date(),
-              status: item.status ?? 'active',
-            } satisfies CartHistoryEvent;
-          });
-
-          const filteredHistory = normalizedHistory.filter((entry) => entry.action !== 'removed');
-
-          setCartHistory(filteredHistory);
-          console.log('📝 Histórico do carrinho restaurado:', filteredHistory.length, 'eventos');
-        }
-      } catch (error) {
-        console.error('Erro ao restaurar histórico:', error);
-      }
-    }
-  }, []);
-
-  // Testimonials Carousel State
-  const [testimonialIndex, setTestimonialIndex] = useState(0);
-  const [isHoveringTestimonials, setIsHoveringTestimonials] = useState(false);
-  const [itemsPerPage, setItemsPerPage] = useState(4); // Default desktop
-
-  // Cookie Consent State
-  const [showCookieConsent, setShowCookieConsent] = useState(false);
-  const [leadStatus, setLeadStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
-  const [leadFeedback, setLeadFeedback] = useState('');
-
-  // Modal State
-  const [modal, setModal] = useState<{ isOpen: boolean; type: 'success' | 'error' | 'warning' | 'confirm'; title?: string; message: string; onConfirm?: () => void } | null>(null);
-
-  const logoUrl = "https://i.imgur.com/l2VarrP.jpeg";
-
-  // Save cart to localStorage whenever it changes
-  useEffect(() => {
-    localStorage.setItem('cart', JSON.stringify(cart));
+                  {/* Categories */}
+                  <section className="py-16 border-b border-gray-100">
+                    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                      <div className="text-center mb-12">
+                  /*...*/
   }, [cart]);
 
   // Save cart history to localStorage whenever it changes
