@@ -310,7 +310,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
           const enrolled = studentsList.filter(
             (aluno) =>
               aluno.course === course.title &&
-              aluno.unit === course.location // course.location é a unidade (Bangu, Campo Grande, Duque de Caxias)
+              aluno.unit === (course.unit || course.location)
           ).length;
           const capacity = course.capacity || 30;
           const percent = capacity > 0 ? Math.round((enrolled / capacity) * 100) : 0;
