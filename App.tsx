@@ -31,7 +31,7 @@ import { createLead } from './services/leads';
 import { fetchCartData, upsertCartItem, updateCartItemStatus, appendCartHistory, deleteCartHistoryByAction } from './services/cart';
 
 // Constante para a logo (ajuste o caminho conforme necessário)
-const logoUrl = 'https://i.imgur.com/SEU_LOGO_AQUI.png'; // Substitua pelo URL real da logo
+const logoUrl = '/assets/logo.webp'; // Usando logo.webp da pasta public/assets
 
 const App: React.FC = () => {
   // ==================== 1. ESTADOS ====================

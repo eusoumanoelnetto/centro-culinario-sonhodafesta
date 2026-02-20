@@ -20,7 +20,7 @@ const Navbar: React.FC<NavbarProps> = ({ onNavigate, user, cartCount = 0, onOpen
   const inputRef = useRef<HTMLInputElement>(null);
   
   // Using the new logo provided
-  const logoUrl = "https://i.imgur.com/l2VarrP.jpeg";
+  const logoUrl = "https://i.imgur.com//assets/logo.webp";
 
   useEffect(() => {
     const handleScroll = () => {
