@@ -27,7 +27,7 @@ const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<'home' | 'details' | 'presencial' | 'catalog' | 'privacy' | 'cookies' | 'blog' | 'teacher-application' | 'contact' | 'profile'>('home');
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
   const [modal, setModal] = useState<{ isOpen: boolean; type: 'success' | 'error' | 'warning' | 'confirm'; title?: string; message: string; onConfirm?: () => void } | null>(null);
-  const logoUrl = "https://i.imgur.com//assets/logo.webp";
+  const logoUrl = "/assets/logo.webp";
 
   const filteredCourses = activeCategory === 'Todos' 
     ? COURSES 
