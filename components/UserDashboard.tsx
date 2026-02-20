@@ -1525,7 +1525,7 @@ const UserDashboard: React.FC<UserDashboardProps> = ({
               {/* ... (ID Card Content) ... */}
               <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-tr from-transparent via-white/5 to-transparent pointer-events-none"></div>
               <div className="flex flex-col items-center mb-8 w-full relative z-10">
-                <img src="https://i.imgur.com/l2VarrP.jpeg" alt="Logo" className="h-12 brightness-0 invert mb-2 opacity-90" />
+                <img src="/assets/logo.webp" alt="Sonho da Festa" className="h-12 brightness-0 invert mb-2 opacity-90" />
                 <div className="h-0.5 w-16 bg-[#fff304] rounded-full opacity-80"></div>
                 <span className="text-xs font-bold uppercase tracking-[0.3em] mt-2 text-red-200">Carteirinha Digital</span>
               </div>

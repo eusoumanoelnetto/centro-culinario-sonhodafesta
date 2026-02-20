@@ -134,7 +134,7 @@ const CheckoutPage: React.FC<CheckoutPageProps> = ({ cartItems, onRemoveItem, on
       <div className="bg-white border-b border-gray-100 py-4 px-6 sticky top-0 z-40 shadow-sm">
         <div className="max-w-7xl mx-auto flex justify-between items-center">
           <div className="flex items-center gap-3">
-             <img src="https://i.imgur.com/l2VarrP.jpeg" alt="Logo" className="h-10 w-auto object-contain rounded-lg" />
+             <img src="/assets/logo.webp" alt="Logo" className="h-10 w-auto object-contain rounded-lg" />
              <div className="h-6 w-px bg-gray-200 mx-2 hidden sm:block"></div>
              <span className="text-lg font-bold text-gray-700 hidden sm:block font-serif">Checkout Seguro</span>
           </div>
