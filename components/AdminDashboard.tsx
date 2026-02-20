@@ -244,7 +244,15 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
   const [courseData, setCourseData] = useState({
     title: '', instructor: '', instagram: '', date: '', price: '', category: 'Confeitaria', description: '', capacity: '30'
   });
-  const [studentData, setStudentData] = useState({ name: '', email: '', cpf: '', whatsapp: '', status: 'Ativo', course: '' });
+  const [studentData, setStudentData] = useState({ 
+    name: '', 
+    email: '', 
+    cpf: '', 
+    whatsapp: '', 
+    status: 'Ativo', 
+    course: '',
+    unit: '' // campo adicionado
+  });
   const [teacherData, setTeacherData] = useState({ name: '', specialty: '', instagram: '' });
   const [blogData, setBlogData] = useState({ title: '', author: '', category: 'Dicas', content: '', tags: '' });
   
@@ -832,7 +840,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
     setEditingId(null);
     setUploadedImage(null);
     setCourseData({ title: '', instructor: '', instagram: '', date: '', price: '', category: 'Confeitaria', description: '', capacity: '30' });
-    setStudentData({ name: '', email: '', cpf: '', whatsapp: '', status: 'Ativo', course: '' });
+    setStudentData({ name: '', email: '', cpf: '', whatsapp: '', status: 'Ativo', course: '', unit: '' });
     setTeacherData({ name: '', specialty: '', instagram: '' });
     setBlogData({ title: '', author: '', category: 'Dicas', content: '', tags: '' });
     setViewMode('form');
@@ -861,6 +869,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
         whatsapp: item.whatsapp || '',
         status: item.status || 'Ativo',
         course: item.course || '',
+        unit: item.unit || '',   // <-- carrega a unidade
       });
     } else if (type === 'teacher') {
       setTeacherData({ name: item.name, specialty: item.specialty, instagram: item.instagram });
@@ -953,6 +962,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
         firstAccess: true,
         status: normalizedStatus,
         course: normalizedCourse ? normalizedCourse : undefined,
+        unit: studentData.unit || undefined,   // <-- incluindo unit no payload
         source: 'admin' as const,
       };
 
@@ -976,7 +986,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
         }
 
         await loadStudents();
-        setStudentData({ name: '', email: '', cpf: '', whatsapp: '', status: 'Ativo', course: '' });
+        setStudentData({ name: '', email: '', cpf: '', whatsapp: '', status: 'Ativo', course: '', unit: '' });
         setEditingId(null);
         shouldShowSuccess = true;
       } catch (error) {
@@ -2310,33 +2320,67 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
                             </select>
                           </div>
                         </div>
+                        
+                        {/* Curso de Interesse */}
                         <div>
-                            <label className="text-xs font-bold text-gray-500 uppercase ml-1">Curso de Interesse</label>
+                          <label className="text-xs font-bold text-gray-500 uppercase ml-1">Curso de Interesse</label>
+                          <div className="relative">
+                            <select 
+                              value={studentData.course} 
+                              onChange={e => {
+                                setStudentData({...studentData, course: e.target.value, unit: ''}); // limpa unidade ao mudar curso
+                              }} 
+                              className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-[#9A0000] outline-none bg-white text-gray-900 appearance-none"
+                            >
+                              <option value="">Selecione um curso...</option>
+                              {Array.from(new Set(coursesList.map(c => c.category))).sort().map(category => (
+                                <optgroup key={category} label={category} className="font-bold text-[#9A0000]">
+                                  {coursesList
+                                    .filter(c => c.category === category)
+                                    .map(course => (
+                                      <option key={course.id} value={course.title} className="text-gray-700 font-normal">
+                                        {course.title}
+                                      </option>
+                                    ))
+                                  }
+                                </optgroup>
+                              ))}
+                            </select>
+                            <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">
+                              <ChevronDown size={16} />
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Unidade do curso (aparece apenas se houver unidades disponíveis para o curso selecionado) */}
+                        {studentData.course && (
+                          <div>
+                            <label className="text-xs font-bold text-gray-500 uppercase ml-1">Unidade</label>
                             <div className="relative">
-                              <select 
-                                value={studentData.course} 
-                                onChange={e => setStudentData({...studentData, course: e.target.value})} 
+                              <select
+                                required={studentData.course ? true : false}
+                                value={studentData.unit || ''}
+                                onChange={e => setStudentData({...studentData, unit: e.target.value})}
                                 className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-[#9A0000] outline-none bg-white text-gray-900 appearance-none"
                               >
-                                <option value="">Selecione um curso...</option>
-                                {Array.from(new Set(coursesList.map(c => c.category))).sort().map(category => (
-                                  <optgroup key={category} label={category} className="font-bold text-[#9A0000]">
-                                    {coursesList
-                                      .filter(c => c.category === category)
-                                      .map(course => (
-                                        <option key={course.id} value={course.title} className="text-gray-700 font-normal">
-                                          {course.title}
-                                        </option>
-                                      ))
-                                    }
-                                  </optgroup>
-                                ))}
+                                <option value="">Selecione a unidade...</option>
+                                {coursesList
+                                  .filter(c => c.title === studentData.course)
+                                  .map(course => course.unit || course.location)
+                                  .filter((unit, idx, arr) => unit && arr.indexOf(unit) === idx)
+                                  .map((unit, idx) => (
+                                    <option key={idx} value={unit}>{unit}</option>
+                                  ))}
                               </select>
                               <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">
                                 <ChevronDown size={16} />
                               </div>
                             </div>
-                        </div>
+                            <p className="text-[10px] text-gray-400 mt-1 ml-1">
+                              Selecione a unidade onde o aluno está matriculado
+                            </p>
+                          </div>
+                        )}
                       </>
                     )}
 
@@ -2356,31 +2400,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                           <div>
                             <label className="text-xs font-bold text-gray-500 uppercase ml-1">Instagram (@)</label>
-                                    {/* Unidade do curso */}
-                                    <div>
-                                      <label className="text-xs font-bold text-gray-500 uppercase ml-1">Unidade</label>
-                                      <div className="relative">
-                                        <select
-                                          required
-                                          value={studentData.unit || ''}
-                                          onChange={e => setStudentData({...studentData, unit: e.target.value})}
-                                          className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-[#9A0000] outline-none bg-white text-gray-900 appearance-none"
-                                          disabled={!studentData.course}
-                                        >
-                                          <option value="">Selecione a unidade...</option>
-                                          {coursesList
-                                            .filter(c => c.title === studentData.course)
-                                            .map(course => course.unit || course.location)
-                                            .filter((unit, idx, arr) => unit && arr.indexOf(unit) === idx)
-                                            .map((unit, idx) => (
-                                              <option key={idx} value={unit}>{unit}</option>
-                                            ))}
-                                        </select>
-                                        <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">
-                                          <ChevronDown size={16} />
-                                        </div>
-                                      </div>
-                                    </div>
                             <input type="text" value={teacherData.instagram} onChange={e => setTeacherData({...teacherData, instagram: e.target.value})} className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-[#9A0000] outline-none bg-white text-gray-900 placeholder:text-gray-400" />
                           </div>
                           <div>
