@@ -151,97 +151,102 @@ const App: React.FC = () => {
   // Load cart and history from localStorage
   useEffect(() => {
     const savedCart = localStorage.getItem('cart');
-
     if (savedCart) {
       try {
         const rawCart = JSON.parse(savedCart);
-        // Proteção de rota: só renderiza AdminDashboard se usuário estiver autenticado e navegou explicitamente para admin
-        const renderContent = () => {
-          switch (currentView) {
-            case 'units':
-              return <Units onBack={() => handleNavigate('home')} />;
-            case 'admin':
-              // Proteção: só renderiza painel se usuário for admin
-              if (user && user.email && user.name && user.studentId) {
-                return (
-                  <AdminDashboard 
-                    onBack={() => handleNavigate('home')} 
-                    onAddCourse={handleAddCourse}
-                    onAddBlogPost={handleAddBlogPost}
-                  />
-                );
-              } else {
-                // Se não autenticado, volta para home
-                setCurrentView('home');
-                return <Hero onViewCatalog={() => handleNavigate('catalog')} />;
-              }
-            case 'checkout':
-              return (
-                <CheckoutPage 
-                  cartItems={cart}
-                  onRemoveItem={removeFromCart}
-                  onSuccess={handleCheckoutSuccess}
-                  onBack={() => handleNavigate('catalog')}
-                />
-              );
-            case 'details':
-              return selectedCourse ? (
-                <CourseDetails 
-                  course={selectedCourse} 
-                  onBack={() => handleNavigate('home')} 
-                  onAddToCart={initiateCoursePurchase}
-                />
-              ) : null;
-            case 'presencial':
-              return <PresencialCourses onBack={() => handleNavigate('home')} onCourseClick={initiateCoursePurchase} />;
-            case 'catalog':
-              return (
-                <Catalog 
-                  onBack={() => handleNavigate('home')} 
-                  onCourseClick={handleCourseClick} 
-                  initialCategory={activeCategory === 'Todos' ? undefined : activeCategory}
-                  courses={courses}
-                  favorites={favorites}
-                  onToggleFavorite={handleToggleFavorite}
-                />
-              );
-            case 'blog':
-              return <Blog onBack={() => handleNavigate('home')} posts={blogPosts} />;
-            case 'teacher-application':
-              return <TeacherApplication onBack={() => handleNavigate('home')} />;
-            case 'contact':
-              return <Contact onBack={() => handleNavigate('home')} />;
-            case 'profile':
-              return (
-                <UserDashboard 
-                  onBack={() => handleNavigate('home')} 
-                  onNavigate={handleNavigate}
-                  user={user}
-                  onLogin={handleLogin}
-                  onLogout={handleLogout}
-                  onRate={handleRateCourse}
-                  favorites={favorites}
-                  allCourses={courses}
-                  onCourseClick={handleCourseClick}
-                  cartHistory={cartHistory}
-                />
-              );
-            case 'privacy':
-              return <PrivacyPolicy onBack={() => handleNavigate('home')} />;
-            case 'cookies':
-              return <CookiePolicy onBack={() => handleNavigate('home')} />;
-            case 'home':
-            default:
-              return (
-                <>
-                  <Hero onViewCatalog={() => handleNavigate('catalog')} />
-
-                  {/* Categories */}
-                  <section className="py-16 border-b border-gray-100">
-                    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                      <div className="text-center mb-12">
-                  /*...*/
+        // ... lógica de normalização do carrinho ...
+      } catch (error) {
+        console.error('Erro ao restaurar carrinho:', error);
+      }
+    }
   }, [cart]);
+
+  // Proteção de rota: só renderiza AdminDashboard se usuário estiver autenticado e navegou explicitamente para admin
+  const renderContent = () => {
+    switch (currentView) {
+      case 'units':
+        return <Units onBack={() => handleNavigate('home')} />;
+      case 'admin':
+        // Proteção: só renderiza painel se usuário for admin
+        if (user && user.email && user.name && user.studentId) {
+          return (
+            <AdminDashboard 
+              onBack={() => handleNavigate('home')} 
+              onAddCourse={handleAddCourse}
+              onAddBlogPost={handleAddBlogPost}
+            />
+          );
+        } else {
+          // Se não autenticado, volta para home
+          setCurrentView('home');
+          return <Hero onViewCatalog={() => handleNavigate('catalog')} />;
+        }
+      case 'checkout':
+        return (
+          <CheckoutPage 
+            cartItems={cart}
+            onRemoveItem={removeFromCart}
+            onSuccess={handleCheckoutSuccess}
+            onBack={() => handleNavigate('catalog')}
+          />
+        );
+      case 'details':
+        return selectedCourse ? (
+          <CourseDetails 
+            course={selectedCourse} 
+            onBack={() => handleNavigate('home')} 
+            onAddToCart={initiateCoursePurchase}
+          />
+        ) : null;
+      case 'presencial':
+        return <PresencialCourses onBack={() => handleNavigate('home')} onCourseClick={initiateCoursePurchase} />;
+      case 'catalog':
+        return (
+          <Catalog 
+            onBack={() => handleNavigate('home')} 
+            onCourseClick={handleCourseClick} 
+            initialCategory={activeCategory === 'Todos' ? undefined : activeCategory}
+            courses={courses}
+            favorites={favorites}
+            onToggleFavorite={handleToggleFavorite}
+          />
+        );
+      case 'blog':
+        return <Blog onBack={() => handleNavigate('home')} posts={blogPosts} />;
+      case 'teacher-application':
+        return <TeacherApplication onBack={() => handleNavigate('home')} />;
+      case 'contact':
+        return <Contact onBack={() => handleNavigate('home')} />;
+      case 'profile':
+        return (
+          <UserDashboard 
+            onBack={() => handleNavigate('home')} 
+            onNavigate={handleNavigate}
+            user={user}
+            onLogin={handleLogin}
+            onLogout={handleLogout}
+            onRate={handleRateCourse}
+            favorites={favorites}
+            allCourses={courses}
+            onCourseClick={handleCourseClick}
+            cartHistory={cartHistory}
+          />
+        );
+      case 'privacy':
+        return <PrivacyPolicy onBack={() => handleNavigate('home')} />;
+      case 'cookies':
+        return <CookiePolicy onBack={() => handleNavigate('home')} />;
+      case 'home':
+      default:
+        return (
+          <>
+            <Hero onViewCatalog={() => handleNavigate('catalog')} />
+
+            {/* Categories */}
+            <section className="py-16 border-b border-gray-100">
+              <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div className="text-center mb-12">
+            {/* ...restante do conteúdo... */}
 
   // Save cart history to localStorage whenever it changes
   useEffect(() => {
