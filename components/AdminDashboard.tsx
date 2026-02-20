@@ -157,15 +157,36 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
   }, [loadAdminRequests]);
 
   // Inicializa cursos com dados aleatórios de vendas e LOCALIZAÇÃO para demonstração
-  const [coursesList, setCoursesList] = useState<AdminCourse[]>(() => {
-    const locations = ['Bangu', 'Campo Grande', 'Duque de Caxias'] as const;
-    return COURSES.map(c => ({
-      ...c,
-      capacity: 30,
-      enrolled: 0,
-      location: locations[Math.floor(Math.random() * locations.length)]
-    }));
-  });
+  // Carregar cursos do Supabase (admin_courses)
+  const [coursesList, setCoursesList] = useState<any[]>([]);
+  const [isLoadingCourses, setIsLoadingCourses] = useState(false);
+  const [coursesError, setCoursesError] = useState<string | null>(null);
+
+  const loadCourses = useCallback(async () => {
+    setIsLoadingCourses(true);
+    setCoursesError(null);
+    try {
+      const { data, error } = await supabase
+        .from('admin_courses')
+        .select('*')
+        .order('created_at', { ascending: false });
+      if (error) {
+        setCoursesError('Erro ao carregar cursos.');
+        setCoursesList([]);
+      } else {
+        setCoursesList(data || []);
+      }
+    } catch (err) {
+      setCoursesError('Erro inesperado ao carregar cursos.');
+      setCoursesList([]);
+    } finally {
+      setIsLoadingCourses(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadCourses();
+  }, [loadCourses]);
   
   const [blogList, setBlogList] = useState(BLOG_POSTS);
   const [certHistory, setCertHistory] = useState<CertificateLog[]>(MOCK_CERT_HISTORY);
@@ -253,6 +274,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
 
   // Renderiza todos os cursos com barra de progresso de ocupação e ações
   const renderCoursesTable = () => {
+    const totalCourses = coursesList.length;
+
     if (!coursesList || coursesList.length === 0) {
       return (
         <div className="text-center py-16 bg-white rounded-2xl border border-dashed border-gray-200">
@@ -525,18 +548,42 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
     // Enviar para cada aluno
     Promise.all(selectedStudentsForCert.map(async (studentId) => {
       const aluno = studentsList.find(s => s.id === studentId);
+      console.log('Dados do aluno para certificado:', aluno);
+
+      // Validar se o aluno foi encontrado
+      if (!aluno) {
+        setModal({ isOpen: true, type: 'error', message: 'Erro: Aluno não encontrado na lista.' });
+        console.error('Erro: Aluno não encontrado para o ID:', studentId);
+        return;
+      }
+
+      // Ajuste para garantir que curso_id seja preenchido corretamente
+      const cursoId = aluno.courseId || aluno.curso_id || aluno.course?.id || null;
+      console.log('Curso ID identificado:', cursoId);
+
       const certData = {
         aluno_id: aluno.id,
         aluno_nome: aluno.name,
-        curso_id: aluno.courseId,
-        curso_nome: aluno.course,
+        curso_id: cursoId,
+        curso_nome: aluno.course || aluno.curso_nome || '',
         tipo: 'Original',
         status: 'Entregue',
         data_envio: new Date().toISOString(),
         admin_user: 'admin', // ajuste conforme necessário
         arquivo_url: '', // ajuste para URL real se houver upload
       };
-      await supabase.from('admin_certificacoes').insert([certData]);
+
+      if (!certData.curso_id) {
+        setModal({ isOpen: true, type: 'error', message: 'Erro: curso_id não encontrado para o aluno selecionado.' });
+        console.error('Erro: curso_id não encontrado para o aluno:', aluno);
+        return;
+      }
+
+      const { error } = await supabase.from('admin_certificacoes').insert([certData]);
+      if (error) {
+        setModal({ isOpen: true, type: 'error', message: 'Erro ao enviar certificado: ' + error.message });
+        console.error('Erro ao inserir certificado:', error);
+      }
     })).then(() => {
       setIsSendingCerts(false);
       showSuccess(`${selectedStudentsForCert.length} certificados enviados com sucesso!`);
@@ -1855,7 +1902,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
                                           )}
                                           <span className="font-bold text-gray-700">{req.email}</span>
                                           <span className="text-[10px] text-gray-400">
-                                            {req.resolvedAt ? new Date(req.resolvedAt).toLocaleString('pt-BR') : ''}
+                                            {req.resolvedAt ? new Date(req.resolvedAt).toLocaleString('pt-BR') : 'N/A'}
                                           </span>
                                         </div>
                                         <button
