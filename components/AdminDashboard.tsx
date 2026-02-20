@@ -128,6 +128,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
       const { data, error } = await supabase
         .from('admin_solicitacoes')
         .select('id, email, tipo, detalhes, status, criado_em, resolvido_em')
+        .neq('status', 'removido')
         .order('criado_em', { ascending: false });
 
       if (error) throw error;
@@ -168,6 +169,20 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
   
   const [blogList, setBlogList] = useState(BLOG_POSTS);
   const [certHistory, setCertHistory] = useState<CertificateLog[]>(MOCK_CERT_HISTORY);
+    // Carregar histórico de certificações do banco
+    const loadCertHistory = async () => {
+      const { data, error } = await supabase
+        .from('admin_certificacoes')
+        .select('*')
+        .order('data_envio', { ascending: false });
+      if (!error) setCertHistory(data || []);
+    };
+
+    useEffect(() => {
+      if (activeTab === 'certificates') {
+        loadCertHistory();
+      }
+    }, [activeTab]);
   const [certRequests, setCertRequests] = useState<CertRequest[]>(MOCK_PENDING_REQUESTS);
   const [adminRequests, setAdminRequests] = useState<AdminRequest[]>([]);
   const [isLoadingRequests, setIsLoadingRequests] = useState(false);
@@ -507,13 +522,29 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
       return;
     }
     setIsSendingCerts(true);
-    setTimeout(() => {
+    // Enviar para cada aluno
+    Promise.all(selectedStudentsForCert.map(async (studentId) => {
+      const aluno = studentsList.find(s => s.id === studentId);
+      const certData = {
+        aluno_id: aluno.id,
+        aluno_nome: aluno.name,
+        curso_id: aluno.courseId,
+        curso_nome: aluno.course,
+        tipo: 'Original',
+        status: 'Entregue',
+        data_envio: new Date().toISOString(),
+        admin_user: 'admin', // ajuste conforme necessário
+        arquivo_url: '', // ajuste para URL real se houver upload
+      };
+      await supabase.from('admin_certificacoes').insert([certData]);
+    })).then(() => {
       setIsSendingCerts(false);
       showSuccess(`${selectedStudentsForCert.length} certificados enviados com sucesso!`);
       setSelectedCertCourse("");
       setSelectedStudentsForCert([]);
       setCertificateFile(null);
-    }, 2000);
+      loadCertHistory();
+    });
   };
 
   const handleResendSingleCert = (log: CertificateLog) => {
