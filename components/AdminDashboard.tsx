@@ -2356,6 +2356,31 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                           <div>
                             <label className="text-xs font-bold text-gray-500 uppercase ml-1">Instagram (@)</label>
+                                    {/* Unidade do curso */}
+                                    <div>
+                                      <label className="text-xs font-bold text-gray-500 uppercase ml-1">Unidade</label>
+                                      <div className="relative">
+                                        <select
+                                          required
+                                          value={studentData.unit || ''}
+                                          onChange={e => setStudentData({...studentData, unit: e.target.value})}
+                                          className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-[#9A0000] outline-none bg-white text-gray-900 appearance-none"
+                                          disabled={!studentData.course}
+                                        >
+                                          <option value="">Selecione a unidade...</option>
+                                          {coursesList
+                                            .filter(c => c.title === studentData.course)
+                                            .map(course => course.unit || course.location)
+                                            .filter((unit, idx, arr) => unit && arr.indexOf(unit) === idx)
+                                            .map((unit, idx) => (
+                                              <option key={idx} value={unit}>{unit}</option>
+                                            ))}
+                                        </select>
+                                        <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">
+                                          <ChevronDown size={16} />
+                                        </div>
+                                      </div>
+                                    </div>
                             <input type="text" value={teacherData.instagram} onChange={e => setTeacherData({...teacherData, instagram: e.target.value})} className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-[#9A0000] outline-none bg-white text-gray-900 placeholder:text-gray-400" />
                           </div>
                           <div>
