@@ -871,7 +871,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
         whatsapp: item.whatsapp || '',
         status: item.status || 'Ativo',
         course: item.course || '',
-        unit: item.unit || '',   // <-- carrega a unidade
+        unit: item.unit || '',   // <-- carrega a unidade (deve vir do banco)
       });
     } else if (type === 'teacher') {
       setTeacherData({ name: item.name, specialty: item.specialty, instagram: item.instagram });

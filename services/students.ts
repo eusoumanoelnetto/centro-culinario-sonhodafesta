@@ -36,6 +36,7 @@ interface StudentRow {
   avatar_url: string | null
   favorites: string[] | null
   created_at: string | null
+  unit: string | null
 }
 
 const STUDENTS_TABLE = 'students'
@@ -58,6 +59,7 @@ function mapRowToStudent(row: StudentRow): Student {
     avatarUrl: row.avatar_url,
     favorites: row.favorites,
     createdAt: row.created_at,
+    unit: row.unit,
   }
 }
 
@@ -72,6 +74,7 @@ function buildInsertPayload(input: StudentInput) {
     first_access: input.firstAccess ?? true,
     status: input.status ?? 'Pendente',
     course: input.course ?? null,
+    unit: input.unit ?? null,
     source: input.source ?? 'admin',
     lead_tag: input.leadTag ?? null,
     last_contact_note: input.lastContact ?? null,
@@ -92,6 +95,7 @@ function buildUpdatePayload(input: StudentInput) {
   if (input.firstAccess !== undefined) payload.first_access = input.firstAccess
   if (input.status !== undefined) payload.status = input.status
   if (input.course !== undefined) payload.course = input.course || null
+  if (input.unit !== undefined) payload.unit = input.unit || null
   if (input.source !== undefined) payload.source = input.source
   if (input.leadTag !== undefined) payload.lead_tag = input.leadTag || null
   if (input.lastContact !== undefined) payload.last_contact_note = input.lastContact || null
@@ -104,7 +108,7 @@ function buildUpdatePayload(input: StudentInput) {
 export async function listStudents(): Promise<Student[]> {
   const { data, error } = await supabase
     .from(STUDENTS_TABLE)
-    .select('*')
+    .select('id, client_id, name, email, cpf, whatsapp, password, first_access, status, course, source, lead_tag, last_contact_note, avatar_url, favorites, unit, created_at')
     .eq('client_id', CLIENT_ID)
     .order('created_at', { ascending: false })
 
