@@ -1,4 +1,3 @@
-
 export interface Course {
   id: string;
   title: string;
@@ -13,6 +12,7 @@ export interface Course {
   level?: string;
   modules?: string[];
   selectedSeat?: string;
+  unit: string; // Unidade onde o curso será realizado
 }
 
 export type CartStatus = 'active' | 'removed' | 'purchased';

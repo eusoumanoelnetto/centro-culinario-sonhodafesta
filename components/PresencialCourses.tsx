@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { MapPin, Calendar, Users, ArrowRight, Clock, ShoppingBag, Award, ChevronRight, Store, FileText, Filter } from 'lucide-react';
 import { Course } from '../types';

@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Star, Clock, Heart, Instagram } from 'lucide-react';
 import { Course } from '../types';
@@ -73,6 +72,10 @@ const CourseCard: React.FC<CourseCardProps> = ({ course, onClick, isFavorite = f
               <Instagram size={10} /> {course.instagram}
             </a>
           )}
+        </div>
+        
+        <div className={`text-gray-500 ${compact ? 'text-xs mb-2' : 'text-[10px] md:text-sm mb-2 md:mb-4'}`}>
+          Unidade: <span className="text-gray-700 font-medium">{course.unit ? course.unit : 'Não informada'}</span>
         </div>
         
         <div className={`mt-auto ${compact ? 'pt-2' : 'pt-2 md:pt-4'} border-t border-gray-50 flex items-end justify-between`}>

@@ -298,11 +298,17 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
     return (
       <div className="space-y-4">
         {coursesList.map((course) => {
-          const percent = course.capacity > 0 ? Math.round((course.enrolled / course.capacity) * 100) : 0;
+          // Calcula quantos alunos estão matriculados neste curso
+          const enrolled = studentsList.filter(
+            (aluno) => aluno.course && aluno.course === course.title
+          ).length;
+          const capacity = course.capacity || 30;
+          const percent = capacity > 0 ? Math.round((enrolled / capacity) * 100) : 0;
           const occupancyColor =
             percent < 30 ? 'bg-green-500' :
             percent < 60 ? 'bg-yellow-500' :
             percent < 90 ? 'bg-orange-500' : 'bg-red-600';
+          const receita = enrolled > 0 && course.price ? (course.price * enrolled) : 0;
 
           return (
             <div
@@ -318,11 +324,11 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
                   <p className="text-sm text-gray-500 flex items-center gap-1 mt-1">
                     <User size={14} className="text-gray-400" />
                     {course.instructor}
-                    {course.location && (
+                    {(course.unit || course.location) && (
                       <>
                         <span className="mx-1">•</span>
                         <MapPin size={14} className="text-gray-400" />
-                        {course.location}
+                        {course.unit || course.location}
                       </>
                     )}
                   </p>
@@ -359,7 +365,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
                     <div className="flex items-center gap-1.5">
                       <Users size={16} className="text-gray-400" />
                       <span className="text-sm font-medium text-gray-700">
-                        {course.enrolled} / {course.capacity} vagas
+                        {enrolled} / {capacity} vagas
                       </span>
                     </div>
                     <div className="flex items-center gap-1.5">
@@ -372,7 +378,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
                       Receita prevista
                     </span>
                     <div className="font-bold text-[#9A0000] text-lg font-inter">
-                      R$ {(course.price * course.enrolled).toFixed(2)}
+                      R$ {receita.toFixed(2)}
                     </div>
                   </div>
                 </div>
@@ -388,7 +394,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
                 {/* Mini estatísticas extras (opcional) */}
                 <div className="mt-4 flex flex-wrap gap-3 text-xs text-gray-500">
                   <span className="inline-flex items-center gap-1">
-                    <Calendar size={12} /> {course.date || 'Data não definida'}
+                    <Calendar size={12} /> {course.date ? new Date(course.date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' }) : 'Data não definida'}
                   </span>
                   <span className="inline-flex items-center gap-1">
                     <DollarSign size={12} /> R$ {course.price} (por aluno)
