@@ -18,6 +18,7 @@ import CheckoutPage from './components/CheckoutPage';
 import SeatSelector from './components/SeatSelector';
 import AdminDashboard from './components/AdminDashboard';
 import Units from './components/Units';
+import Teachers from './components/Teachers'; // <-- import da página de professores
 import Modal from './components/Modal';
 import { Course, BlogPost, CartItem, CartHistoryEvent } from './types';
 import { CATEGORIES, COURSES, TESTIMONIALS, BLOG_POSTS } from './constants';
@@ -30,25 +31,31 @@ import { recordFormSubmission } from './services/formSubmissions';
 import { createLead } from './services/leads';
 import { fetchCartData, upsertCartItem, updateCartItemStatus, appendCartHistory, deleteCartHistoryByAction } from './services/cart';
 
-// Constante para a logo (ajuste o caminho conforme necessário)
-const logoUrl = '/assets/logo.webp'; // Usando logo.webp da pasta public/assets
+const logoUrl = '/assets/logo.webp'; // Substitua pelo URL real da logo
 
 const App: React.FC = () => {
-  // ==================== 1. ESTADOS ====================
   const [activeCategory, setActiveCategory] = useState('Todos');
-  const [currentView, setCurrentView] = useState<'home' | 'details' | 'presencial' | 'catalog' | 'privacy' | 'cookies' | 'blog' | 'teacher-application' | 'contact' | 'profile' | 'checkout' | 'admin' | 'units'>('home');
+  const [currentView, setCurrentView] = useState<'home' | 'details' | 'presencial' | 'catalog' | 'privacy' | 'cookies' | 'blog' | 'teacher-application' | 'contact' | 'profile' | 'checkout' | 'admin' | 'units' | 'teachers'>('home');
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
+  
   const [courses, setCourses] = useState<Course[]>(COURSES);
+  const coursesRef = useRef<Course[]>(COURSES);
+  const pendingCartSync = useRef<Promise<void> | null>(null);
+  
   const [blogPosts, setBlogPosts] = useState<BlogPost[]>(BLOG_POSTS);
+  
   const [cart, setCart] = useState<CartItem[]>([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [cartHistory, setCartHistory] = useState<CartHistoryEvent[]>([]);
+
   const [favorites, setFavorites] = useState<string[]>([]);
+
   const [seatSelectorOpen, setSeatSelectorOpen] = useState(false);
   const [courseToSelectSeat, setCourseToSelectSeat] = useState<Course | null>(null);
+
   const [user, setUser] = useState<{name: string, email: string, avatar?: string, studentId?: string} | null>(null);
 
-  // Estados adicionais que estavam faltando
+  // Estados para a home (carrossel, cookie, etc.)
   const [showCookieConsent, setShowCookieConsent] = useState(false);
   const [itemsPerPage, setItemsPerPage] = useState(4);
   const [testimonialIndex, setTestimonialIndex] = useState(0);
@@ -57,11 +64,9 @@ const App: React.FC = () => {
   const [leadFeedback, setLeadFeedback] = useState('');
   const [modal, setModal] = useState<{ isOpen: boolean; type?: 'warning' | 'success' | 'error'; title?: string; message: string; onConfirm?: () => void } | null>(null);
 
-  // ==================== 2. REFS ====================
-  const coursesRef = useRef<Course[]>(COURSES);
-  const pendingCartSync = useRef<Promise<void> | null>(null);
-
-  // ==================== 3. FUNÇÕES AUXILIARES ====================
+  useEffect(() => {
+    coursesRef.current = courses;
+  }, [courses]);
 
   const resolveCourseSnapshot = (courseId: string, fallback: Partial<Course> = {}): Course => {
     const catalogCourse = coursesRef.current.find(course => course.id === courseId);
@@ -97,6 +102,192 @@ const App: React.FC = () => {
     return syncPromise;
   };
 
+  // Carregar usuário e favoritos do localStorage ao inicializar
+  useEffect(() => {
+    const savedUser = localStorage.getItem('user_session');
+    const savedFavorites = localStorage.getItem('user_favorites');
+    
+    if (savedUser) {
+      try {
+        const userData = JSON.parse(savedUser);
+        setUser(userData);
+        console.log('✅ Sessão restaurada:', userData.name);
+        
+        if (userData.studentId) {
+          import('./services/students').then(async ({ updateStudent, listStudents }) => {
+            try {
+              const students = await listStudents();
+              const student = students.find(s => s.id === userData.studentId);
+              if (student && student.favorites) {
+                setFavorites(student.favorites);
+                localStorage.setItem('user_favorites', JSON.stringify(student.favorites));
+                console.log('❤️ Favoritos sincronizados do banco:', student.favorites.length, 'cursos');
+              }
+            } catch (error) {
+              console.error('Erro ao sincronizar favoritos:', error);
+              if (savedFavorites) {
+                const favoritesData = JSON.parse(savedFavorites);
+                setFavorites(favoritesData);
+              }
+            }
+          });
+        } else if (savedFavorites) {
+          const favoritesData = JSON.parse(savedFavorites);
+          setFavorites(favoritesData);
+          console.log('❤️ Favoritos restaurados do cache:', favoritesData.length, 'cursos');
+        }
+      } catch (error) {
+        console.error('Erro ao restaurar sessão:', error);
+        localStorage.removeItem('user_session');
+      }
+    }
+  }, []);
+
+  // Load cart and history from localStorage
+  useEffect(() => {
+    const savedCart = localStorage.getItem('cart');
+    if (savedCart) {
+      try {
+        const rawCart = JSON.parse(savedCart);
+        setCart(rawCart); // Simplificado; ajuste conforme necessário
+      } catch (error) {
+        console.error('Erro ao restaurar carrinho:', error);
+      }
+    }
+    const savedHistory = localStorage.getItem('cart_history');
+    if (savedHistory) {
+      try {
+        setCartHistory(JSON.parse(savedHistory));
+      } catch (error) {
+        console.error('Erro ao restaurar histórico:', error);
+      }
+    }
+  }, []);
+
+  // Save cart to localStorage whenever it changes
+  useEffect(() => {
+    localStorage.setItem('cart', JSON.stringify(cart));
+  }, [cart]);
+
+  // Save cart history to localStorage whenever it changes
+  useEffect(() => {
+    localStorage.setItem('cart_history', JSON.stringify(cartHistory));
+  }, [cartHistory]);
+
+  // Proteção de rota: só renderiza AdminDashboard se usuário estiver autenticado e navegou explicitamente para admin
+  // ... (outros useEffects existentes, como o de hidratação do Supabase, etc.)
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const hydrateFromSupabase = async () => {
+      if (!user?.studentId) return;
+
+      const syncPromise = pendingCartSync.current;
+      if (syncPromise) {
+        try {
+          await syncPromise;
+        } catch (error) {
+          console.error('Erro ao sincronizar itens locais antes de carregar o carrinho remoto:', error);
+        } finally {
+          pendingCartSync.current = null;
+        }
+      }
+
+      try {
+        const { items, history } = await fetchCartData(user.studentId);
+        if (!isMounted) return;
+
+        const activeCartItems: CartItem[] = items
+          .filter((item) => item.status === 'active')
+          .map((item) => {
+            const mergedCourse = resolveCourseSnapshot(item.courseId, item.snapshot);
+            return {
+              ...mergedCourse,
+              selectedSeat: item.snapshot.selectedSeat ?? mergedCourse.selectedSeat,
+              cartItemId: item.cartItemId,
+              status: item.status,
+              persisted: true,
+            } satisfies CartItem;
+          });
+
+        setCart(activeCartItems);
+
+        const historyEntries: CartHistoryEvent[] = history
+          .filter((entry) => entry.action !== 'removed')
+          .map((entry) => ({
+            id: entry.id,
+            cartItemId: entry.cartItemId,
+            courseId: entry.courseId,
+            action: entry.action,
+            course: resolveCourseSnapshot(entry.courseId, entry.snapshot),
+            timestamp: new Date(entry.createdAt),
+            status: items.find((item) => item.cartItemId === entry.cartItemId)?.status ?? 'active',
+          }));
+
+        setCartHistory(historyEntries);
+      } catch (error) {
+        console.error('Erro ao carregar carrinho do banco:', error);
+      }
+    };
+
+    void hydrateFromSupabase();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [user?.studentId]);
+
+  // 🔌 Teste de conexão Supabase
+  useEffect(() => {
+    console.log('🚀 Supabase conectado:', supabase);
+  }, []);
+
+  // Carousel Logic & Cookie Check
+  useEffect(() => {
+    const consent = localStorage.getItem('cookie_consent');
+    if (!consent) {
+      const timer = setTimeout(() => setShowCookieConsent(true), 1500);
+      return () => clearTimeout(timer);
+    }
+
+    const handleResize = () => {
+      if (window.innerWidth < 768) {
+        setItemsPerPage(1);
+      } else if (window.innerWidth < 1024) {
+        setItemsPerPage(2);
+      } else {
+        setItemsPerPage(4);
+      }
+    };
+
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  useEffect(() => {
+    if (isHoveringTestimonials) return;
+
+    const interval = setInterval(() => {
+      setTestimonialIndex((prevIndex) => {
+        const maxIndex = TESTIMONIALS.length - itemsPerPage;
+        return prevIndex >= maxIndex ? 0 : prevIndex + 1;
+      });
+    }, 3000);
+
+    return () => clearInterval(interval);
+  }, [itemsPerPage, isHoveringTestimonials]);
+
+  const getCategoryIcon = (name: string) => {
+    switch(name) {
+      case 'Confeitaria': return <Cake strokeWidth={1.5} size={28} />;
+      case 'Decorações': return <PartyPopper strokeWidth={1.5} size={28} />;
+      case 'Páscoa': return <Egg strokeWidth={1.5} size={28} />;
+      default: return <Star strokeWidth={1.5} size={28} />;
+    }
+  };
+
   const handleCourseClick = (course: Course) => {
     setSelectedCourse(course);
     setCurrentView('details');
@@ -113,10 +304,10 @@ const App: React.FC = () => {
     const updatedFavorites = favorites.includes(course.id)
       ? favorites.filter(id => id !== course.id)
       : [...favorites, course.id];
-
+    
     setFavorites(updatedFavorites);
     localStorage.setItem('user_favorites', JSON.stringify(updatedFavorites));
-
+    
     if (user.studentId) {
       try {
         const { updateStudent } = await import('./services/students');
@@ -125,6 +316,7 @@ const App: React.FC = () => {
           email: user.email,
           favorites: updatedFavorites,
         });
+        console.log('📡 Favoritos salvos no banco de dados');
       } catch (error) {
         console.error('❌ Erro ao salvar favoritos no banco:', error);
       }
@@ -148,7 +340,7 @@ const App: React.FC = () => {
       }
       return course;
     }));
-
+    
     if (selectedCourse && selectedCourse.id === courseId) {
       setSelectedCourse(prev => {
         if (!prev) return null;
@@ -158,6 +350,13 @@ const App: React.FC = () => {
       });
     }
   };
+
+  // Salvar página atual no localStorage sempre que mudar (apenas para usuários logados)
+  useEffect(() => {
+    if (user) {
+      localStorage.setItem('current_view', currentView);
+    }
+  }, [currentView, user]);
 
   const handleNavigate = (page: string) => {
     if (page === 'home') {
@@ -196,6 +395,9 @@ const App: React.FC = () => {
       setSelectedCourse(null);
     } else if (page === 'units') {
       setCurrentView('units');
+      setSelectedCourse(null);
+    } else if (page === 'teachers') { // <-- nova rota
+      setCurrentView('teachers');
       setSelectedCourse(null);
     }
     window.scrollTo(0, 0);
@@ -239,14 +441,19 @@ const App: React.FC = () => {
 
   const handleLogin = (userData: {name: string, email: string, avatar?: string, studentId: string, favorites?: string[]}) => {
     setUser(userData);
+    
     if (userData.favorites) {
       setFavorites(userData.favorites);
       localStorage.setItem('user_favorites', JSON.stringify(userData.favorites));
+      console.log('❤️ Favoritos carregados do banco:', userData.favorites.length, 'cursos');
     }
+
     if (cart.length > 0) {
       void syncLocalCartToSupabase(userData.studentId);
     }
+    
     localStorage.setItem('user_session', JSON.stringify(userData));
+    console.log('💾 Sessão salva:', userData.name);
   };
 
   const handleLogout = () => {
@@ -256,6 +463,7 @@ const App: React.FC = () => {
     localStorage.removeItem('user_favorites');
     localStorage.removeItem('cart');
     localStorage.removeItem('cart_history');
+    console.log('🚪 Sessão encerrada');
     setFavorites([]);
     setCart([]);
     setCartHistory([]);
@@ -383,205 +591,11 @@ const App: React.FC = () => {
     }
   };
 
-  const getCategoryIcon = (name: string) => {
-    switch (name) {
-      case 'Confeitaria': return <Cake strokeWidth={1.5} size={28} />;
-      case 'Decorações': return <PartyPopper strokeWidth={1.5} size={28} />;
-      case 'Páscoa': return <Egg strokeWidth={1.5} size={28} />;
-      default: return <Star strokeWidth={1.5} size={28} />;
-    }
-  };
+  const filteredCourses = activeCategory === 'Todos' 
+    ? courses 
+    : courses.filter(c => c.category === activeCategory);
 
-  // ==================== 4. useEffect ====================
-
-  // Atualizar a ref sempre que courses mudar
-  useEffect(() => {
-    coursesRef.current = courses;
-  }, [courses]);
-
-  // Carregar usuário e favoritos do localStorage ao inicializar
-  useEffect(() => {
-    const savedUser = localStorage.getItem('user_session');
-    const savedFavorites = localStorage.getItem('user_favorites');
-
-    if (savedUser) {
-      try {
-        const userData = JSON.parse(savedUser);
-        setUser(userData);
-        console.log('✅ Sessão restaurada:', userData.name);
-
-        if (userData.studentId) {
-          import('./services/students').then(async ({ updateStudent, listStudents }) => {
-            try {
-              const students = await listStudents();
-              const student = students.find(s => s.id === userData.studentId);
-              if (student && student.favorites) {
-                setFavorites(student.favorites);
-                localStorage.setItem('user_favorites', JSON.stringify(student.favorites));
-              }
-            } catch (error) {
-              console.error('Erro ao sincronizar favoritos:', error);
-              if (savedFavorites) {
-                const favoritesData = JSON.parse(savedFavorites);
-                setFavorites(favoritesData);
-              }
-            }
-          });
-        } else if (savedFavorites) {
-          const favoritesData = JSON.parse(savedFavorites);
-          setFavorites(favoritesData);
-        }
-      } catch (error) {
-        console.error('Erro ao restaurar sessão:', error);
-        localStorage.removeItem('user_session');
-      }
-    }
-  }, []);
-
-  // Salvar página atual no localStorage sempre que mudar (apenas para usuários logados)
-  useEffect(() => {
-    if (user) {
-      localStorage.setItem('current_view', currentView);
-    }
-  }, [currentView, user]);
-
-  // Carregar carrinho e histórico do localStorage
-  useEffect(() => {
-    const savedCart = localStorage.getItem('cart');
-    if (savedCart) {
-      try {
-        const rawCart = JSON.parse(savedCart);
-        // ... lógica de normalização do carrinho ...
-        setCart(rawCart); // Ajuste conforme necessário
-      } catch (error) {
-        console.error('Erro ao restaurar carrinho:', error);
-      }
-    }
-    const savedHistory = localStorage.getItem('cart_history');
-    if (savedHistory) {
-      try {
-        setCartHistory(JSON.parse(savedHistory));
-      } catch (error) {
-        console.error('Erro ao restaurar histórico:', error);
-      }
-    }
-  }, []);
-
-  // Salvar carrinho no localStorage sempre que mudar
-  useEffect(() => {
-    localStorage.setItem('cart', JSON.stringify(cart));
-  }, [cart]);
-
-  // Salvar histórico no localStorage sempre que mudar
-  useEffect(() => {
-    localStorage.setItem('cart_history', JSON.stringify(cartHistory));
-  }, [cartHistory]);
-
-  // Hidratar carrinho do Supabase quando o usuário fizer login
-  useEffect(() => {
-    let isMounted = true;
-
-    const hydrateFromSupabase = async () => {
-      if (!user?.studentId) return;
-
-      const syncPromise = pendingCartSync.current;
-      if (syncPromise) {
-        try {
-          await syncPromise;
-        } catch (error) {
-          console.error('Erro ao sincronizar itens locais antes de carregar o carrinho remoto:', error);
-        } finally {
-          pendingCartSync.current = null;
-        }
-      }
-
-      try {
-        const { items, history } = await fetchCartData(user.studentId);
-        if (!isMounted) return;
-
-        const activeCartItems: CartItem[] = items
-          .filter((item) => item.status === 'active')
-          .map((item) => {
-            const mergedCourse = resolveCourseSnapshot(item.courseId, item.snapshot);
-            return {
-              ...mergedCourse,
-              selectedSeat: item.snapshot.selectedSeat ?? mergedCourse.selectedSeat,
-              cartItemId: item.cartItemId,
-              status: item.status,
-              persisted: true,
-            } satisfies CartItem;
-          });
-
-        setCart(activeCartItems);
-
-        const historyEntries: CartHistoryEvent[] = history
-          .filter((entry) => entry.action !== 'removed')
-          .map((entry) => ({
-            id: entry.id,
-            cartItemId: entry.cartItemId,
-            courseId: entry.courseId,
-            action: entry.action,
-            course: resolveCourseSnapshot(entry.courseId, entry.snapshot),
-            timestamp: new Date(entry.createdAt),
-            status: items.find((item) => item.cartItemId === entry.cartItemId)?.status ?? 'active',
-          }));
-
-        setCartHistory(historyEntries);
-      } catch (error) {
-        console.error('Erro ao carregar carrinho do banco:', error);
-      }
-    };
-
-    void hydrateFromSupabase();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [user?.studentId]);
-
-  // Verificar consentimento de cookies e ajustar itemsPerPage
-  useEffect(() => {
-    const consent = localStorage.getItem('cookie_consent');
-    if (!consent) {
-      const timer = setTimeout(() => setShowCookieConsent(true), 1500);
-      return () => clearTimeout(timer);
-    }
-
-    const handleResize = () => {
-      if (window.innerWidth < 768) {
-        setItemsPerPage(1);
-      } else if (window.innerWidth < 1024) {
-        setItemsPerPage(2);
-      } else {
-        setItemsPerPage(4);
-      }
-    };
-
-    handleResize();
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
-
-  // Auto-play dos depoimentos
-  useEffect(() => {
-    if (isHoveringTestimonials) return;
-
-    const interval = setInterval(() => {
-      setTestimonialIndex((prevIndex) => {
-        const maxIndex = TESTIMONIALS.length - itemsPerPage;
-        return prevIndex >= maxIndex ? 0 : prevIndex + 1;
-      });
-    }, 3000);
-
-    return () => clearInterval(interval);
-  }, [itemsPerPage, isHoveringTestimonials]);
-
-  // Teste de conexão Supabase
-  useEffect(() => {
-    console.log('🚀 Supabase conectado:', supabase);
-  }, []);
-
-  // ==================== 5. RENDER CONDICIONAL ====================
+  // Função que retorna o conteúdo baseado na view atual
   const renderContent = () => {
     switch (currentView) {
       case 'units':
@@ -649,6 +663,8 @@ const App: React.FC = () => {
         return <PrivacyPolicy onBack={() => handleNavigate('home')} />;
       case 'cookies':
         return <CookiePolicy onBack={() => handleNavigate('home')} />;
+      case 'teachers': // <-- nova view
+        return <Teachers onBack={() => handleNavigate('home')} />;
       case 'home':
       default:
         return (
@@ -662,7 +678,7 @@ const App: React.FC = () => {
                   <span className="text-[#d20000] font-bold text-xs uppercase tracking-widest">Nossas Áreas</span>
                   <h2 className="text-3xl lg:text-4xl font-serif font-bold text-[#9A0000] mt-2">Explore por Categoria</h2>
                 </div>
-
+                
                 <div className="flex flex-wrap justify-center gap-6">
                   {CATEGORIES.map((cat) => (
                     <button 
@@ -712,18 +728,15 @@ const App: React.FC = () => {
                 </div>
 
                 <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 md:gap-8">
-                  {courses
-                    .filter(c => activeCategory === 'Todos' || c.category === activeCategory)
-                    .slice(0, 6)
-                    .map(course => (
-                      <CourseCard 
-                        key={course.id} 
-                        course={course} 
-                        onClick={handleCourseClick}
-                        isFavorite={favorites.includes(course.id)}
-                        onToggleFavorite={handleToggleFavorite}
-                      />
-                    ))}
+                  {filteredCourses.slice(0, 6).map(course => (
+                    <CourseCard 
+                      key={course.id} 
+                      course={course} 
+                      onClick={handleCourseClick}
+                      isFavorite={favorites.includes(course.id)}
+                      onToggleFavorite={handleToggleFavorite}
+                    />
+                  ))}
                 </div>
               </div>
             </section>
@@ -843,7 +856,6 @@ const App: React.FC = () => {
     }
   };
 
-  // ==================== 6. RENDER PRINCIPAL ====================
   return (
     <div className="min-h-screen flex flex-col selection:bg-[#fff304] selection:text-[#9A0000] bg-[#fcfaf8] font-quicksand overflow-x-hidden">
       {currentView !== 'checkout' && currentView !== 'admin' && (
@@ -855,7 +867,7 @@ const App: React.FC = () => {
           favoritesCount={favorites.length}
         />
       )}
-
+      
       <CartSidebar 
         isOpen={isCartOpen} 
         onClose={() => setIsCartOpen(false)} 
@@ -903,189 +915,189 @@ const App: React.FC = () => {
 
       <main className="flex-grow">
         {renderContent()}
-      </main>
 
-      {/* Newsletter e Footer */}
-      {currentView !== 'checkout' && currentView !== 'admin' && (
-        <>
+        {currentView !== 'details' && currentView !== 'catalog' && currentView !== 'privacy' && 
+         currentView !== 'cookies' && currentView !== 'blog' && currentView !== 'teacher-application' && 
+         currentView !== 'contact' && currentView !== 'profile' && currentView !== 'checkout' && 
+         currentView !== 'admin' && currentView !== 'units' && currentView !== 'teachers' && (
           <section className="py-20 bg-white border-t border-gray-100 relative overflow-hidden">
-            <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-[#9A0000] via-[#d20000] to-[#fff304]" />
-            <div className="max-w-4xl mx-auto px-4 relative z-10">
-              <div className="text-center mb-10">
-                <div className="inline-block p-3 rounded-full bg-[#9A0000]/5 text-[#9A0000] mb-4">
-                  <Mail size={24} />
-                </div>
-                <h2 className="text-3xl font-serif font-bold text-[#9A0000] mb-4">
-                  Receba novidades e ofertas
-                </h2>
-                <p className="text-gray-500 text-lg">
-                  Faça parte da nossa lista exclusiva. Cadastre-se para receber o calendário de cursos, 
-                  dicas e cupons diretamente no seu WhatsApp.
-                </p>
-              </div>
-
-              <form onSubmit={handleLeadSubmit} className="bg-white p-8 rounded-2xl shadow-xl border border-gray-100 max-w-2xl mx-auto relative overflow-hidden">
-                <div className="absolute top-0 right-0 w-32 h-32 bg-[#fff304]/10 rounded-bl-full -z-0" />
-                <div className="grid grid-cols-1 gap-4 relative z-10">
-                  <div>
-                    <label className="block text-sm font-bold text-gray-700 mb-2 ml-1">Nome Completo</label>
-                    <div className="relative">
-                      <User className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
-                      <input
-                        required
-                        type="text"
-                        name="name"
-                        placeholder="Como podemos te chamar?"
-                        className="w-full pl-12 pr-4 py-4 rounded-xl bg-gray-50 border border-gray-200 focus:outline-none focus:border-[#9A0000] focus:bg-white transition-all"
-                      />
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-bold text-gray-700 mb-2 ml-1">E-mail</label>
-                      <div className="relative">
-                        <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
-                        <input
-                          required
-                          type="email"
-                          name="email"
-                          placeholder="seu@email.com"
-                          className="w-full pl-12 pr-4 py-4 rounded-xl bg-gray-50 border border-gray-200 focus:outline-none focus:border-[#9A0000] focus:bg-white transition-all"
-                        />
-                      </div>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-bold text-gray-700 mb-2 ml-1">WhatsApp</label>
-                      <div className="relative">
-                        <Phone className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
-                        <input
-                          required
-                          type="tel"
-                          name="phone"
-                          placeholder="(21) 99999-9999"
-                          className="w-full pl-12 pr-4 py-4 rounded-xl bg-gray-50 border border-gray-200 focus:outline-none focus:border-[#9A0000] focus:bg-white transition-all"
-                        />
-                      </div>
-                    </div>
-                  </div>
-                  <button
-                    type="submit"
-                    disabled={leadStatus === 'loading'}
-                    className="mt-4 w-full bg-[#9A0000] text-white font-bold py-4 rounded-xl hover:bg-[#7a0000] transition-all shadow-lg shadow-blue-900/10 flex items-center justify-center gap-2 group disabled:opacity-60"
-                  >
-                    {leadStatus === 'loading' ? 'Enviando...' : 'Quero receber novidades e ofertas'}
-                    {leadStatus !== 'loading' && <ArrowRight size={20} className="group-hover:translate-x-1 transition-transform" />}
-                  </button>
-                  {leadFeedback && (
-                    <p className={`text-center text-sm font-medium ${leadStatus === 'success' ? 'text-green-600' : 'text-red-600'}`}>
-                      {leadFeedback}
-                    </p>
-                  )}
-                  <div className="mt-4 space-y-2">
-                    <p className="text-center text-xs text-gray-500 flex items-center justify-center gap-1.5 font-medium">
-                      <MessageCircle size={16} className="text-[#9a0000]" /> Entre para o nosso Canal de Ofertas no WhatsApp.
-                    </p>
-                    <p className="text-center text-[10px] text-gray-400 flex items-center justify-center gap-1">
-                      <Lock size={10} /> Seus dados estão seguros e protegidos.
-                    </p>
-                  </div>
-                </div>
-              </form>
-            </div>
+             <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-[#9A0000] via-[#d20000] to-[#fff304]"></div>
+             <div className="max-w-4xl mx-auto px-4 relative z-10">
+               <div className="text-center mb-10">
+                 <div className="inline-block p-3 rounded-full bg-[#9A0000]/5 text-[#9A0000] mb-4">
+                   <Mail size={24} />
+                 </div>
+                 <h2 className="text-3xl font-serif font-bold text-[#9A0000] mb-4">Receba novidades e ofertas</h2>
+                 <p className="text-gray-500 text-lg">
+                   Faça parte da nossa lista exclusiva. Cadastre-se para receber o calendário de cursos, dicas e cupons diretamente no seu WhatsApp.
+                 </p>
+               </div>
+               
+               <form onSubmit={handleLeadSubmit} className="bg-white p-8 rounded-2xl shadow-xl border border-gray-100 max-w-2xl mx-auto relative overflow-hidden">
+                 <div className="absolute top-0 right-0 w-32 h-32 bg-[#fff304]/10 rounded-bl-full -z-0"></div>
+                 <div className="grid grid-cols-1 gap-4 relative z-10">
+                   <div>
+                     <label className="block text-sm font-bold text-gray-700 mb-2 ml-1">Nome Completo</label>
+                     <div className="relative">
+                       <User className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
+                       <input
+                         required
+                         type="text"
+                         name="name"
+                         placeholder="Como podemos te chamar?"
+                         className="w-full pl-12 pr-4 py-4 rounded-xl bg-gray-50 border border-gray-200 focus:outline-none focus:border-[#9A0000] focus:bg-white transition-all"
+                       />
+                     </div>
+                   </div>
+                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                     <div>
+                       <label className="block text-sm font-bold text-gray-700 mb-2 ml-1">E-mail</label>
+                       <div className="relative">
+                         <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
+                         <input
+                           required
+                           type="email"
+                           name="email"
+                           placeholder="seu@email.com"
+                           className="w-full pl-12 pr-4 py-4 rounded-xl bg-gray-50 border border-gray-200 focus:outline-none focus:border-[#9A0000] focus:bg-white transition-all"
+                         />
+                       </div>
+                     </div>
+                     <div>
+                       <label className="block text-sm font-bold text-gray-700 mb-2 ml-1">WhatsApp</label>
+                       <div className="relative">
+                         <Phone className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
+                         <input
+                           required
+                           type="tel"
+                           name="phone"
+                           placeholder="(21) 99999-9999"
+                           className="w-full pl-12 pr-4 py-4 rounded-xl bg-gray-50 border border-gray-200 focus:outline-none focus:border-[#9A0000] focus:bg-white transition-all"
+                         />
+                       </div>
+                     </div>
+                   </div>
+                   <button
+                     type="submit"
+                     disabled={leadStatus === 'loading'}
+                     className="mt-4 w-full bg-[#9A0000] text-white font-bold py-4 rounded-xl hover:bg-[#7a0000] transition-all shadow-lg shadow-blue-900/10 flex items-center justify-center gap-2 group disabled:opacity-60"
+                   >
+                     {leadStatus === 'loading' ? 'Enviando...' : 'Quero receber novidades e ofertas'}
+                     {leadStatus !== 'loading' && <ArrowRight size={20} className="group-hover:translate-x-1 transition-transform" />}
+                   </button>
+                   {leadFeedback && (
+                     <p className={`text-center text-sm font-medium ${leadStatus === 'success' ? 'text-green-600' : 'text-red-600'}`}>
+                       {leadFeedback}
+                     </p>
+                   )}
+                   <div className="mt-4 space-y-2">
+                     <p className="text-center text-xs text-gray-500 flex items-center justify-center gap-1.5 font-medium">
+                       <MessageCircle size={16} className="text-[#9a0000]" /> Entre para o nosso Canal de Ofertas no WhatsApp.
+                     </p>
+                     <p className="text-center text-[10px] text-gray-400 flex items-center justify-center gap-1">
+                       <Lock size={10} /> Seus dados estão seguros e protegidos.
+                     </p>
+                   </div>
+                 </div>
+               </form>
+             </div>
           </section>
-
-          <footer className="bg-gray-900 text-white pt-20 pb-6">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12 mb-16">
-                <div>
-                  <div className="flex items-center gap-3 mb-8">
-                    <div className="bg-white p-2 rounded-lg">
-                      <img src={logoUrl} alt="Sonho da Festa" className="h-32 w-auto object-contain" />
-                    </div>
-                  </div>
-                  <p className="text-gray-400 text-sm leading-relaxed mb-6">
-                    Desde 1996 transformando paixão em profissão. A maior rede de lojas de festas do Rio de Janeiro.
-                  </p>
-                  <div className="flex gap-4">
-                    <a href="http://instagram.com/cursos.sonhodafesta" target="_blank" rel="noopener noreferrer" className="w-10 h-10 rounded-full bg-gray-800 flex items-center justify-center hover:bg-[#9A0000] transition-colors">
-                      <Instagram size={18} />
-                    </a>
-                    <a href="http://facebook.com/cursos.sonhodafesta" target="_blank" rel="noopener noreferrer" className="w-10 h-10 rounded-full bg-gray-800 flex items-center justify-center hover:bg-[#9A0000] transition-colors">
-                      <Facebook size={18} />
-                    </a>
-                    <a href="https://www.youtube.com/@sonhodafesta" target="_blank" rel="noopener noreferrer" className="w-10 h-10 rounded-full bg-gray-800 flex items-center justify-center hover:bg-[#9A0000] transition-colors">
-                      <Youtube size={18} />
-                    </a>
-                  </div>
-                </div>
-                <div>
-                  <h3 className="text-lg font-bold mb-6 text-white font-serif">Navegação</h3>
-                  <ul className="space-y-3 text-gray-400 text-sm">
-                    <li><a href="#" onClick={(e) => { e.preventDefault(); handleNavigate('home'); }} className="hover:text-[#fff304] transition-colors flex items-center gap-2">Início</a></li>
-                    <li><a href="https://sonhodafesta.com.br" target="_blank" rel="noopener noreferrer" className="hover:text-[#fff304] transition-colors flex items-center gap-2 font-medium text-white">Loja Virtual</a></li>
-                    <li><a href="#" onClick={(e) => { e.preventDefault(); handleNavigate('presencial'); }} className="hover:text-[#fff304] transition-colors flex items-center gap-2">Cursos Presenciais</a></li>
-                    <li><a href="#" onClick={(e) => { e.preventDefault(); handleNavigate('blog'); }} className="hover:text-[#fff304] transition-colors flex items-center gap-2">Blog</a></li>
-                    <li><a href="#" onClick={(e) => { e.preventDefault(); handleNavigate('teacher-application'); }} className="text-[#fff304] font-bold hover:text-white transition-colors flex items-center gap-2">Quer dar aula?</a></li>
-                    <li><a href="#" onClick={(e) => { e.preventDefault(); handleNavigate('units'); }} className="hover:text-[#fff304] transition-colors flex items-center gap-2">Nossas Unidades</a></li>
-                    <li><a href="#" onClick={(e) => { e.preventDefault(); handleNavigate('contact'); }} className="hover:text-[#fff304] transition-colors flex items-center gap-2">Contato</a></li>
-                    <li>
-                      <a href="#" onClick={(e) => { e.preventDefault(); handleNavigate('admin'); }} className="hover:text-[#fff304] transition-colors flex items-center gap-2 text-xs opacity-70 mt-4">
-                        <Lock size={12} /> Painel Adm
-                      </a>
-                    </li>
-                    <li className="pt-4 mt-2 border-t border-gray-800">
-                      <a href="#" onClick={(e) => { e.preventDefault(); handleNavigate('privacy'); }} className="hover:text-[#fff304] transition-colors block text-xs mb-2">Política de privacidade</a>
-                      <a href="#" onClick={(e) => { e.preventDefault(); handleNavigate('cookies'); }} className="hover:text-[#fff304] transition-colors block text-xs">Política de cookie</a>
-                    </li>
-                  </ul>
-                </div>
-                <div>
-                  <h3 className="text-lg font-bold mb-6 text-white font-serif">Categorias</h3>
-                  <ul className="space-y-4 text-gray-400 text-sm">
-                    <li><a href="#" onClick={(e) => handleFooterCategoryClick('Confeitaria', e)} className="hover:text-[#fff304] transition-colors">Confeitaria</a></li>
-                    <li><a href="#" onClick={(e) => handleFooterCategoryClick('Decorações', e)} className="hover:text-[#fff304] transition-colors">Decorações</a></li>
-                    <li><a href="#" onClick={(e) => handleFooterCategoryClick('Páscoa', e)} className="hover:text-[#fff304] transition-colors">Páscoa</a></li>
-                  </ul>
-                </div>
-                <div>
-                  <h3 className="text-lg font-bold mb-6 text-white font-serif">Atendimento</h3>
-                  <ul className="space-y-4 text-gray-400 text-sm">
-                    <li className="flex items-start gap-3">
-                      <MapPin className="text-[#d20000] flex-shrink-0 mt-0.5" size={18} />
-                      <span><strong>7 Lojas no Rio de Janeiro</strong><br /><span className="text-xs opacity-70">Cursos em: Caxias, Bangu e C. Grande</span></span>
-                    </li>
-                    <li className="flex items-center gap-3">
-                      <Phone className="text-[#d20000] flex-shrink-0" size={18} />
-                      <span>(21) 99071-2742</span>
-                    </li>
-                    <li className="flex items-center gap-3">
-                      <Mail className="text-[#d20000] flex-shrink-0" size={18} />
-                      <span>sonhodafestacursos@gmail.com</span>
-                    </li>
-                  </ul>
+        )}
+      </main>
+      
+      {/* Footer */}
+      <footer className="bg-gray-900 text-white pt-20 pb-6">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          {currentView !== 'checkout' && currentView !== 'admin' && (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12 mb-16">
+            <div>
+              <div className="flex items-center gap-3 mb-8">
+                <div className="bg-white p-2 rounded-lg">
+                  <img src={logoUrl} alt="Sonho da Festa" className="h-32 w-auto object-contain" />
                 </div>
               </div>
-              <div className="border-t border-gray-800 pt-4 flex flex-col md:flex-row justify-between items-center gap-4 text-sm text-gray-500">
-                <p className="text-center md:text-left">&copy; {new Date().getFullYear()} Sonho da Festa Comércio de Artigos para Festas LTDA.</p>
-                <div className="flex items-center gap-6">
-                  <a href="https://rebrand.ly/6a8f73" target="_blank" rel="noopener noreferrer" className="group relative hover:opacity-100 transition-all">
-                    <div className="absolute right-full top-1/2 -translate-y-1/2 mr-3 w-40 bg-[#fff304] text-[#9A0000] text-xs font-bold p-2 rounded-lg shadow-xl opacity-0 group-hover:opacity-100 transition-all transform translate-x-2 group-hover:translate-x-0 pointer-events-none text-center z-50 leading-tight">
-                      Quer fazer seu site?<br/>Faça conosco, clique aqui!
-                      <div className="absolute top-1/2 -right-2 -translate-y-1/2 w-0 h-0 border-t-[6px] border-t-transparent border-l-[8px] border-l-[#fff304] border-b-[6px] border-b-transparent" />
-                    </div>
-                    <img 
-                      src="https://i.imgur.com/JMe6OUY.png" 
-                      alt="Formas de Pagamento e Segurança" 
-                      className="h-12 object-contain hover:opacity-80 transition-opacity"
-                    />
-                  </a>
-                </div>
+              <p className="text-gray-400 text-sm leading-relaxed mb-6">
+                Desde 1996 transformando paixão em profissão. A maior rede de lojas de festas do Rio de Janeiro.
+              </p>
+              <div className="flex gap-4">
+                <a href="http://instagram.com/cursos.sonhodafesta" target="_blank" rel="noopener noreferrer" className="w-10 h-10 rounded-full bg-gray-800 flex items-center justify-center hover:bg-[#9A0000] transition-colors">
+                  <Instagram size={18} />
+                </a>
+                <a href="http://facebook.com/cursos.sonhodafesta" target="_blank" rel="noopener noreferrer" className="w-10 h-10 rounded-full bg-gray-800 flex items-center justify-center hover:bg-[#9A0000] transition-colors">
+                  <Facebook size={18} />
+                </a>
+                <a href="https://www.youtube.com/@sonhodafesta" target="_blank" rel="noopener noreferrer" className="w-10 h-10 rounded-full bg-gray-800 flex items-center justify-center hover:bg-[#9A0000] transition-colors">
+                  <Youtube size={18} />
+                </a>
               </div>
             </div>
-          </footer>
-        </>
-      )}
-
+            <div>
+              <h3 className="text-lg font-bold mb-6 text-white font-serif">Navegação</h3>
+              <ul className="space-y-3 text-gray-400 text-sm">
+                <li><a href="#" onClick={(e) => { e.preventDefault(); handleNavigate('home'); }} className="hover:text-[#fff304] transition-colors flex items-center gap-2">Início</a></li>
+                <li><a href="https://sonhodafesta.com.br" target="_blank" rel="noopener noreferrer" className="hover:text-[#fff304] transition-colors flex items-center gap-2 font-medium text-white">Loja Virtual</a></li>
+                <li><a href="#" onClick={(e) => { e.preventDefault(); handleNavigate('presencial'); }} className="hover:text-[#fff304] transition-colors flex items-center gap-2">Cursos Presenciais</a></li>
+                <li><a href="#" onClick={(e) => { e.preventDefault(); handleNavigate('teachers'); }} className="hover:text-[#fff304] transition-colors flex items-center gap-2">Nossos Professores</a></li> {/* <-- novo item */}
+                <li><a href="#" onClick={(e) => { e.preventDefault(); handleNavigate('blog'); }} className="hover:text-[#fff304] transition-colors flex items-center gap-2">Blog</a></li>
+                <li><a href="#" onClick={(e) => { e.preventDefault(); handleNavigate('teacher-application'); }} className="text-[#fff304] font-bold hover:text-white transition-colors flex items-center gap-2">Quer dar aula?</a></li>
+                <li><a href="#" onClick={(e) => { e.preventDefault(); handleNavigate('units'); }} className="hover:text-[#fff304] transition-colors flex items-center gap-2">Nossas Unidades</a></li>
+                <li><a href="#" onClick={(e) => { e.preventDefault(); handleNavigate('contact'); }} className="hover:text-[#fff304] transition-colors flex items-center gap-2">Contato</a></li>
+                <li>
+                  <a href="#" onClick={(e) => { e.preventDefault(); handleNavigate('admin'); }} className="hover:text-[#fff304] transition-colors flex items-center gap-2 text-xs opacity-70 mt-4">
+                    <Lock size={12} /> Painel Adm
+                  </a>
+                </li>
+                <li className="pt-4 mt-2 border-t border-gray-800">
+                  <a href="#" onClick={(e) => { e.preventDefault(); handleNavigate('privacy'); }} className="hover:text-[#fff304] transition-colors block text-xs mb-2">Política de privacidade</a>
+                  <a href="#" onClick={(e) => { e.preventDefault(); handleNavigate('cookies'); }} className="hover:text-[#fff304] transition-colors block text-xs">Política de cookie</a>
+                </li>
+              </ul>
+            </div>
+            <div>
+              <h3 className="text-lg font-bold mb-6 text-white font-serif">Categorias</h3>
+              <ul className="space-y-4 text-gray-400 text-sm">
+                <li><a href="#" onClick={(e) => handleFooterCategoryClick('Confeitaria', e)} className="hover:text-[#fff304] transition-colors">Confeitaria</a></li>
+                <li><a href="#" onClick={(e) => handleFooterCategoryClick('Decorações', e)} className="hover:text-[#fff304] transition-colors">Decorações</a></li>
+                <li><a href="#" onClick={(e) => handleFooterCategoryClick('Páscoa', e)} className="hover:text-[#fff304] transition-colors">Páscoa</a></li>
+              </ul>
+            </div>
+            <div>
+              <h3 className="text-lg font-bold mb-6 text-white font-serif">Atendimento</h3>
+              <ul className="space-y-4 text-gray-400 text-sm">
+                <li className="flex items-start gap-3">
+                  <MapPin className="text-[#d20000] flex-shrink-0 mt-0.5" size={18} />
+                  <span><strong>7 Lojas no Rio de Janeiro</strong><br /><span className="text-xs opacity-70">Cursos em: Caxias, Bangu e C. Grande</span></span>
+                </li>
+                <li className="flex items-center gap-3">
+                  <Phone className="text-[#d20000] flex-shrink-0" size={18} />
+                  <span>(21) 99071-2742</span>
+                </li>
+                <li className="flex items-center gap-3">
+                  <Mail className="text-[#d20000] flex-shrink-0" size={18} />
+                  <span>sonhodafestacursos@gmail.com</span>
+                </li>
+              </ul>
+            </div>
+            </div>
+          )}
+          <div className="border-t border-gray-800 pt-4 flex flex-col md:flex-row justify-between items-center gap-4 text-sm text-gray-500">
+            <p className="text-center md:text-left">&copy; {new Date().getFullYear()} Sonho da Festa Comércio de Artigos para Festas LTDA.</p>
+            <div className="flex items-center gap-6">
+              <a href="https://rebrand.ly/6a8f73" target="_blank" rel="noopener noreferrer" className="group relative hover:opacity-100 transition-all">
+                <div className="absolute right-full top-1/2 -translate-y-1/2 mr-3 w-40 bg-[#fff304] text-[#9A0000] text-xs font-bold p-2 rounded-lg shadow-xl opacity-0 group-hover:opacity-100 transition-all transform translate-x-2 group-hover:translate-x-0 pointer-events-none text-center z-50 leading-tight">
+                  Quer fazer seu site?<br/>Faça conosco, clique aqui!
+                  <div className="absolute top-1/2 -right-2 -translate-y-1/2 w-0 h-0 border-t-[6px] border-t-transparent border-l-[8px] border-l-[#fff304] border-b-[6px] border-b-transparent" />
+                </div>
+                <img 
+                  src="https://i.imgur.com/JMe6OUY.png" 
+                  alt="Formas de Pagamento e Segurança" 
+                  className="h-12 object-contain hover:opacity-80 transition-opacity"
+                />
+              </a>
+            </div>
+          </div>
+        </div>
+      </footer>
       <AIAssistant />
 
       {/* Global Modal */}

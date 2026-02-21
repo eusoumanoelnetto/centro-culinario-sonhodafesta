@@ -1,3 +1,13 @@
+
+export interface Instructor {
+  id: string;
+  name: string;
+  role: string;
+  bio: string;
+  avatar: string;
+  instagram: string;
+}
+
 export interface Course {
   id: string;
   title: string;

@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Course, Category, Testimonial, BlogPost } from './types';
+import { Course, Category, Testimonial, BlogPost, Instructor } from './types';
 import { COURSE_DATA } from './courseData';
 
 export const COLORS = {
@@ -10,12 +10,108 @@ export const COLORS = {
   yellow: '#fff304',
 };
 
+export const INSTRUCTORS: Instructor[] = [
+  {
+    id: '1',
+    name: 'Claudia Thomaz',
+    role: 'Especialista em Pasta Americana',
+    bio: 'Com mais de 15 anos de experiência, Claudia é referência em modelagem e acabamentos perfeitos com pasta americana.',
+    avatar: 'https://images.unsplash.com/photo-1583394293214-28ded15ee548?auto=format&fit=crop&q=80&w=400',
+    instagram: '@claudiathomaz_cake'
+  },
+  {
+    id: '2',
+    name: 'Luan Gomes',
+    role: 'Chef de Panificação e Culinária',
+    bio: 'Mestre das massas e fermentação natural, Luan traz técnicas profissionais de padaria para sua cozinha.',
+    avatar: 'https://images.unsplash.com/photo-1577219491135-ce391730fb2c?auto=format&fit=crop&q=80&w=400',
+    instagram: '@chefluangomes'
+  },
+  {
+    id: '3',
+    name: 'Adriana Balões',
+    role: 'Decoradora de Festas',
+    bio: 'Transforma qualquer ambiente com sua arte em balões. Especialista em arcos desconstruídos e cenografia.',
+    avatar: 'https://images.unsplash.com/photo-1595273670150-bd0c3c392e46?auto=format&fit=crop&q=80&w=400',
+    instagram: '@adrianabaloes'
+  },
+  {
+    id: '4',
+    name: 'Patricia Oliveira',
+    role: 'Confeiteira e Chocolatier',
+    bio: 'Apaixonada por chocolate e bolos gelados, Patricia ensina receitas práticas e lucrativas para venda.',
+    avatar: 'https://images.unsplash.com/photo-1556910103-1c02745a30bf?auto=format&fit=crop&q=80&w=400',
+    instagram: '@patriciaoliveira_cake'
+  },
+  {
+    id: '5',
+    name: 'Wilson Brandão',
+    role: 'Chef Boulanger',
+    bio: 'Especialista em tortas de vitrine e pães doces, Wilson compartilha segredos de confeitaria fina.',
+    avatar: 'https://images.unsplash.com/photo-1581299894007-aaa50297cf16?auto=format&fit=crop&q=80&w=400',
+    instagram: '@wilsonbrandao_chef'
+  },
+  {
+    id: '6',
+    name: 'Quéren Hapuque',
+    role: 'Confeitaria Criativa',
+    bio: 'Sempre antenada nas tendências, Quéren traz o que há de mais moderno em bolos e doces decorados.',
+    avatar: 'https://images.unsplash.com/photo-1544168190-79c11c14068e?auto=format&fit=crop&q=80&w=400',
+    instagram: '@querenhapuque'
+  },
+  {
+    id: '7',
+    name: 'Rita Araújo',
+    role: 'Culinária Salgada e Doce',
+    bio: 'Versátil e didática, Rita domina desde os salgadinhos de festa até os doces mais delicados.',
+    avatar: 'https://images.unsplash.com/photo-1566554273541-37a9ca77b91f?auto=format&fit=crop&q=80&w=400',
+    instagram: '@ritaaraujo.culinaria'
+  },
+  {
+    id: '8',
+    name: 'Alessandra Mauro',
+    role: 'Salgados e Massas',
+    bio: 'Expert em salgados fritos e assados, Alessandra ensina técnicas de congelamento e produção em escala.',
+    avatar: 'https://images.unsplash.com/photo-1580489944761-15a19d654956?auto=format&fit=crop&q=80&w=400',
+    instagram: '@alessandramauro'
+  }
+];
+
 export const CATEGORIES: Category[] = [
   { id: '1', name: 'Confeitaria', icon: 'Cake' },
   { id: '2', name: 'Decorações', icon: 'PartyPopper' },
   { id: '3', name: 'Páscoa', icon: 'Egg' },
   { id: '4', name: 'Culinária', icon: 'ChefHat' },
 ];
+
+// Simula a obtenção do Instagram do professor
+function getInstructorHandle(name: string): string {
+  const handles: Record<string, string> = {
+    "Claudia Thomaz": "@claudiathomaz_cake",
+    "Alice Miralha": "@alicemiralha",
+    "Ana Cristina": "@anacristinabolos",
+    "Diana Machado": "@dianamachado.doces",
+    "Luan Gomes": "@chefluangomes",
+    "Kátia Lima": "@katialima.cakes",
+    "Eli Rocha": "@elirocha.confeitaria",
+    "Patricia Oliveira": "@patriciaoliveira_cake",
+    "Adriana Balões": "@adrianabaloes",
+    "Rogéria Balbino": "@rogeria.balbino",
+    "Lucimar Gomes": "@lucimargomes.doces",
+    "Wilson Brandão": "@wilsonbrandao_chef",
+    "Leticia Oliveira": "@leticiaoliveira.confeitaria",
+    "Quéren Hapuque": "@querenhapuque",
+    "Alessandra Mauro": "@alessandramauro",
+    "Nina Carvalho": "@ninacarvalho.doces",
+    "Monica Ortega": "@monicaortega_biscoitos",
+    "Giovanna Nogueira": "@giovannanogueira",
+    "Rita Araújo": "@ritaaraujo.culinaria",
+    "Andréa Vasconcellos": "@andreavasconcellos.gourmet",
+    "Rose Gomes": "@rosegomes_bolos",
+    "Naira de Luca": "@nairadeluca"
+  };
+  return handles[name] || "@sonhodafestacursos";
+}
 
 export const COURSES: Course[] = COURSE_DATA;
 

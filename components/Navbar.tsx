@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { Menu, X, ShoppingCart, User, Search, Heart, ArrowRight, Loader2 } from 'lucide-react';
 import { recordFormSubmission } from '../services/formSubmissions';
@@ -84,7 +83,14 @@ const Navbar: React.FC<NavbarProps> = ({ onNavigate, user, cartCount = 0, onOpen
 
   const navItems = [
     { name: 'Início', id: 'home' },
-    { name: 'Cursos Presenciais', id: 'presencial' },
+    { 
+      name: 'Cursos Presenciais', 
+      id: 'presencial', 
+      submenu: [
+        { name: 'Agenda de Cursos', id: 'presencial' },
+        { name: 'Nossos Professores', id: 'teachers' }
+      ]
+    },
     { name: 'Blog', id: 'blog' },
     { name: 'Loja Virtual', href: 'https://sonhodafesta.com.br' }
   ];
@@ -184,17 +190,43 @@ const Navbar: React.FC<NavbarProps> = ({ onNavigate, user, cartCount = 0, onOpen
               {/* Desktop Navigation */}
               <div className="hidden lg:flex items-center gap-8">
                 {navItems.map((item) => (
-                  <a 
-                    key={item.name}
-                    href={item.href || "#"} 
-                    target={item.href ? "_blank" : undefined}
-                    rel={item.href ? "noopener noreferrer" : undefined}
-                    onClick={(e) => !item.href && handleLinkClick(item.id!, e)}
-                    className="text-[#9A0000] font-medium text-sm uppercase tracking-wider hover:text-[#d20000] transition-colors relative group"
-                  >
-                    {item.name}
-                    <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-[#d20000] transition-all duration-300 group-hover:w-full"></span>
-                  </a>
+                  <div key={item.name} className="relative group">
+                    <a 
+                      href={item.href || "#"} 
+                      target={item.href ? "_blank" : undefined}
+                      rel={item.href ? "noopener noreferrer" : undefined}
+                      onClick={(e) => !item.href && handleLinkClick(item.id!, e)}
+                      className="text-[#9A0000] font-medium text-sm uppercase tracking-wider hover:text-[#d20000] transition-colors relative flex items-center gap-1"
+                    >
+                      {item.name}
+                      {item.submenu && (
+                        <svg
+                          className="ml-1 w-4 h-4 transition-transform duration-200 group-hover:rotate-180"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          viewBox="0 0 24 24"
+                        >
+                          <path d="m6 9 6 6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                      )}
+                      <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-[#d20000] transition-all duration-300 group-hover:w-full"></span>
+                    </a>
+                    {item.submenu && (
+                      <div className="absolute left-1/2 -translate-x-1/2 mt-3 min-w-[180px] bg-white border border-gray-200 shadow-xl rounded-xl opacity-0 group-hover:opacity-100 group-hover:translate-y-0 translate-y-2 transition-all duration-200 z-30 flex flex-col py-2">
+                        {item.submenu.map((subItem) => (
+                          <a
+                            key={subItem.name}
+                            href="#"
+                            onClick={(e) => handleLinkClick(subItem.id!, e)}
+                            className="block px-5 py-3 text-base text-[#9A0000] font-semibold rounded-lg hover:bg-[#fff4f4] hover:text-[#d20000] transition-colors duration-150 cursor-pointer whitespace-nowrap"
+                          >
+                            {subItem.name}
+                          </a>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 ))}
               </div>
 

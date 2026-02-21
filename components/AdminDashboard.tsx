@@ -85,9 +85,80 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
 
   // Data States
   const [studentsList, setStudentsList] = useState<Student[]>([]);
-  const [teachersList, setTeachersList] = useState(MOCK_TEACHERS);
+  const [teachersList, setTeachersList] = useState<any[]>([]);
+  const [isLoadingTeachers, setIsLoadingTeachers] = useState(false);
+  const [teachersError, setTeachersError] = useState<string | null>(null);
   const [isLoadingStudents, setIsLoadingStudents] = useState(false);
   const [studentsError, setStudentsError] = useState<string | null>(null);
+
+  // Função para carregar professores do Supabase
+  const loadTeachers = useCallback(async () => {
+    if (!isAuthenticated) {
+      setTeachersList([]);
+      setTeachersError(null);
+      return;
+    }
+    setIsLoadingTeachers(true);
+    setTeachersError(null);
+    try {
+      console.log('Carregando professores...');
+      // Buscar professores cadastrados manualmente
+      const { data: teachersData, error: teachersError } = await supabase
+        .from('admin_teachers')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (teachersError) {
+        console.error('Erro ao buscar admin_teachers:', teachersError);
+        setTeachersError('Erro ao carregar professores.');
+        setTeachersList([]);
+        return;
+      }
+
+      // Buscar professores vinculados aos cursos reais (para fallback)
+      const { data: coursesData, error: coursesError } = await supabase
+        .from('admin_courses')
+        .select('instructor, specialty, instagram, whatsapp, email')
+        .order('created_at', { ascending: false });
+
+      if (coursesError) {
+        console.error('Erro ao buscar admin_courses:', coursesError);
+        // Não falha totalmente, apenas ignora os dados dos cursos
+      }
+
+      // Extrair professores únicos dos cursos
+      const courseTeachers = (coursesData || [])
+        .filter(c => c.instructor)
+        .map(c => ({
+          id: `course-${c.instructor}`, // id fictício
+          name: c.instructor,
+          specialty: c.specialty || '',
+          instagram: c.instagram || '',
+          whatsapp: c.whatsapp || '',
+          email: c.email || '',
+          fromCourse: true // marcador
+        }));
+
+      // Unificar professores (evitar duplicados)
+      const allTeachers = [...(teachersData || []), ...courseTeachers];
+      const uniqueTeachers = allTeachers.filter((teacher, idx, arr) =>
+        arr.findIndex(t => t.name === teacher.name) === idx
+      );
+
+      console.log('Professores carregados:', uniqueTeachers);
+      setTeachersList(uniqueTeachers);
+    } catch (err) {
+      console.error('Erro inesperado ao carregar professores:', err);
+      setTeachersError('Erro inesperado ao carregar professores.');
+      setTeachersList([]);
+    } finally {
+      setIsLoadingTeachers(false);
+    }
+  }, [isAuthenticated]);
+
+  useEffect(() => {
+    loadTeachers();
+  }, [loadTeachers]);
 
   const loadStudents = useCallback(async () => {
     if (!isAuthenticated) {
@@ -156,7 +227,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
     loadAdminRequests();
   }, [loadAdminRequests]);
 
-  // Inicializa cursos com dados aleatórios de vendas e LOCALIZAÇÃO para demonstração
   // Carregar cursos do Supabase (admin_courses)
   const [coursesList, setCoursesList] = useState<any[]>([]);
   const [isLoadingCourses, setIsLoadingCourses] = useState(false);
@@ -251,9 +321,15 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
     whatsapp: '', 
     status: 'Ativo', 
     course: '',
-    unit: '' // campo adicionado
+    unit: ''
   });
-  const [teacherData, setTeacherData] = useState({ name: '', specialty: '', instagram: '' });
+  const [teacherData, setTeacherData] = useState({ 
+    name: '', 
+    specialty: '', 
+    instagram: '',
+    whatsapp: '',
+    email: ''
+  });
   const [blogData, setBlogData] = useState({ title: '', author: '', category: 'Dicas', content: '', tags: '' });
   
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
@@ -566,16 +642,13 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
       const aluno = studentsList.find(s => s.id === studentId);
       console.log('Dados do aluno para certificado:', aluno);
 
-      // Validar se o aluno foi encontrado
       if (!aluno) {
         setModal({ isOpen: true, type: 'error', message: 'Erro: Aluno não encontrado na lista.' });
         console.error('Erro: Aluno não encontrado para o ID:', studentId);
         return;
       }
 
-      // Ajuste para garantir que curso_id seja preenchido corretamente
       const cursoId = aluno.courseId || aluno.curso_id || aluno.course?.id || null;
-      console.log('Curso ID identificado:', cursoId);
 
       const certData = {
         aluno_id: aluno.id,
@@ -585,8 +658,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
         tipo: 'Original',
         status: 'Entregue',
         data_envio: new Date().toISOString(),
-        admin_user: 'admin', // ajuste conforme necessário
-        arquivo_url: '', // ajuste para URL real se houver upload
+        admin_user: 'admin',
+        arquivo_url: '',
       };
 
       if (!certData.curso_id) {
@@ -843,7 +916,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
     setUploadedImage(null);
     setCourseData({ title: '', instructor: '', instagram: '', date: '', price: '', category: 'Confeitaria', description: '', capacity: '30' });
     setStudentData({ name: '', email: '', cpf: '', whatsapp: '', status: 'Ativo', course: '', unit: '' });
-    setTeacherData({ name: '', specialty: '', instagram: '' });
+    setTeacherData({ name: '', specialty: '', instagram: '', whatsapp: '', email: '' });
     setBlogData({ title: '', author: '', category: 'Dicas', content: '', tags: '' });
     setViewMode('form');
   };
@@ -871,10 +944,16 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
         whatsapp: item.whatsapp || '',
         status: item.status || 'Ativo',
         course: item.course || '',
-        unit: item.unit || '',   // <-- carrega a unidade (deve vir do banco)
+        unit: item.unit || '',
       });
     } else if (type === 'teacher') {
-      setTeacherData({ name: item.name, specialty: item.specialty, instagram: item.instagram });
+      setTeacherData({
+        name: item.name,
+        specialty: item.specialty || '',
+        instagram: item.instagram || '',
+        whatsapp: item.whatsapp || '',
+        email: item.email || ''
+      });
     } else if (type === 'blog') {
       setBlogData({ title: item.title, author: item.author, category: item.category, content: item.content || item.excerpt, tags: 'Dicas, Geral' });
     }
@@ -915,6 +994,11 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
         await loadStudents();
         setSelectedStudentsForCert(prev => prev.filter(existingId => existingId !== studentId));
       } else if (type === 'teacher') {
+        // Remove apenas se for um id real da tabela admin_teachers
+        if (typeof id === 'string' && !id.startsWith('course-')) {
+          const { error } = await supabase.from('admin_teachers').delete().eq('id', id);
+          if (error) throw error;
+        }
         setTeachersList(prev => prev.filter(t => t.id !== id));
       } else if (type === 'blog') {
         setBlogList(prev => prev.filter(b => b.id !== id));
@@ -956,7 +1040,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
       const normalizedCourse = studentData.course.trim();
       const normalizedCpf = studentData.cpf.trim();
 
-      // Validação: se um curso foi selecionado, a unidade é obrigatória
       if (normalizedCourse && !studentData.unit) {
         setModal({ isOpen: true, type: 'warning', message: 'Selecione a unidade para o curso escolhido.' });
         return;
@@ -971,7 +1054,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
         firstAccess: true,
         status: normalizedStatus,
         course: normalizedCourse ? normalizedCourse : undefined,
-        unit: studentData.unit || undefined,   // <-- incluindo unit no payload
+        unit: studentData.unit || undefined,
         source: 'admin' as const,
       };
 
@@ -1004,11 +1087,47 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
         return;
       }
     } else if (activeTab === 'teachers') {
-      payload = {
-        ...basePayload,
-        data: teacherData,
+      // Validação básica
+      if (!teacherData.name) {
+        setModal({ isOpen: true, type: 'warning', message: 'Informe o nome do professor.' });
+        return;
+      }
+
+      const teacherPayload = {
+        name: teacherData.name.trim(),
+        specialty: teacherData.specialty.trim() || null,
+        instagram: teacherData.instagram.trim() || null,
+        whatsapp: teacherData.whatsapp.trim() || null,
+        email: teacherData.email.trim() || null,
       };
-      shouldShowSuccess = true;
+
+      try {
+        if (editingId && typeof editingId === 'string' && !editingId.startsWith('course-')) {
+          // Atualiza professor existente na tabela admin_teachers
+          const { error } = await supabase
+            .from('admin_teachers')
+            .update(teacherPayload)
+            .eq('id', editingId);
+          if (error) throw error;
+          successMessage = 'Professor atualizado com sucesso!';
+        } else {
+          // Cria novo professor na tabela admin_teachers
+          const { error } = await supabase
+            .from('admin_teachers')
+            .insert([teacherPayload]);
+          if (error) throw error;
+          successMessage = 'Professor cadastrado com sucesso!';
+        }
+
+        await loadTeachers(); // recarrega a lista
+        setTeacherData({ name: '', specialty: '', instagram: '', whatsapp: '', email: '' });
+        setEditingId(null);
+        shouldShowSuccess = true;
+      } catch (error) {
+        console.error('Erro ao salvar professor', error);
+        setModal({ isOpen: true, type: 'error', message: 'Não foi possível salvar o professor. Tente novamente.' });
+        return;
+      }
     } else if (activeTab === 'blog') {
       payload = {
         ...basePayload,
@@ -1162,11 +1281,11 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
                                 <div 
                                     key={unit.name} 
                                     onClick={() => setSelectedUnitStats(unit.name as any)}
-                                    className={`relative p-4 rounded-xl border transition-all cursor-pointer group ${
+                                    className={`relative p-4 rounded-xl border transition-all cursor-pointer group ${(
                                         selectedUnitStats === unit.name 
                                             ? 'border-[#9A0000] ring-1 ring-[#9A0000]/10 bg-red-50/20' 
                                             : 'border-gray-100 hover:border-gray-200 hover:bg-gray-50'
-                                    }`}
+                                    )}`}
                                 >
                                     <div className="flex justify-between items-center mb-3">
                                         <div className="flex items-center gap-2">
@@ -1617,38 +1736,116 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
   };
 
   // --- RENDER TEACHERS TABLE ---
-  const renderTeachersTable = () => (
-    <div className="overflow-x-auto">
-      <table className="w-full text-left border-collapse">
-        <thead>
-          <tr className="border-b border-gray-100 text-xs font-bold text-gray-500 uppercase tracking-wider">
-            <th className="p-4">Nome</th>
-            <th className="p-4">Especialidade</th>
-            <th className="p-4">Instagram</th>
-            <th className="p-4 text-right">Ações</th>
-          </tr>
-        </thead>
-        <tbody className="text-sm text-gray-700">
-          {teachersList.map(teacher => (
-            <tr key={teacher.id} className="border-b border-gray-50 hover:bg-gray-50 transition-colors">
-              <td className="p-4 flex items-center gap-3">
-                <img src={teacher.image || 'https://via.placeholder.com/40'} alt="" className="w-10 h-10 rounded-full object-cover bg-gray-200" />
-                <span className="font-bold text-gray-900">{teacher.name}</span>
-              </td>
-              <td className="p-4">{teacher.specialty}</td>
-              <td className="p-4 text-blue-600">{teacher.instagram}</td>
-              <td className="p-4 text-right">
-                <div className="flex justify-end gap-2">
-                  <button onClick={() => handleEdit(teacher, 'teacher')} className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg"><Edit size={16} /></button>
-                  <button onClick={() => handleDelete(teacher.id, 'teacher')} className="p-2 text-red-600 hover:bg-red-50 rounded-lg"><Trash2 size={16} /></button>
-                </div>
-              </td>
+  const renderTeachersTable = () => {
+    if (isLoadingTeachers) {
+      return (
+        <div className="flex items-center justify-center py-12">
+          <Loader2 size={32} className="animate-spin text-[#9A0000]" />
+        </div>
+      );
+    }
+
+    if (teachersError) {
+      return (
+        <div className="text-center py-12 text-red-600">
+          <p>{teachersError}</p>
+          <button
+            onClick={loadTeachers}
+            className="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-[#9A0000] text-white font-bold hover:bg-[#7a0000] transition-colors"
+          >
+            <RefreshCw size={16} /> Tentar novamente
+          </button>
+        </div>
+      );
+    }
+
+    if (teachersList.length === 0) {
+      return (
+        <div className="text-center py-16 bg-white rounded-2xl border border-dashed border-gray-200">
+          <div className="inline-flex items-center justify-center w-20 h-20 bg-gray-100 rounded-full mb-4">
+            <User size={32} className="text-gray-400" />
+          </div>
+          <h3 className="text-xl font-bold text-gray-700 mb-2">Nenhum professor cadastrado</h3>
+          <p className="text-gray-500 mb-6">Comece adicionando um novo professor ou os instrutores dos cursos aparecerão automaticamente.</p>
+          <button
+            onClick={handleAddNew}
+            className="inline-flex items-center gap-2 bg-[#9A0000] text-white px-6 py-3 rounded-xl font-bold hover:bg-[#7a0000] transition-all shadow-lg"
+          >
+            <Plus size={20} />
+            Adicionar Professor
+          </button>
+        </div>
+      );
+    }
+
+    return (
+      <div className="overflow-x-auto">
+        <table className="w-full text-left border-collapse">
+          <thead className="bg-gray-50">
+            <tr className="border-b border-gray-100 text-xs font-bold text-gray-500 uppercase tracking-wider">
+              <th className="p-4">Nome</th>
+              <th className="p-4">Especialidade</th>
+              <th className="p-4">Instagram</th>
+              <th className="p-4">WhatsApp</th>
+              <th className="p-4">E-mail</th>
+              <th className="p-4 text-right">Ações</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
+          </thead>
+          <tbody className="text-sm text-gray-700">
+            {teachersList.map(teacher => (
+              <tr key={teacher.id} className="border-b border-gray-50 hover:bg-gray-50 transition-colors">
+                <td className="p-4 flex items-center gap-3">
+                  <img src={teacher.image || 'https://via.placeholder.com/40'} alt="" className="w-10 h-10 rounded-full object-cover bg-gray-200" />
+                  <span className="font-bold text-gray-900">{teacher.name}</span>
+                </td>
+                <td className="p-4">{teacher.specialty}</td>
+                <td className="p-4 text-blue-600">{teacher.instagram || '-'}</td>
+                <td className="p-4">
+                  {teacher.whatsapp ? (
+                    <a
+                      href={`https://wa.me/55${teacher.whatsapp.replace(/\D/g, '')}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-green-600 hover:underline"
+                    >
+                      {teacher.whatsapp}
+                    </a>
+                  ) : '-'}
+                </td>
+                <td className="p-4">
+                  {teacher.email ? (
+                    <a href={`mailto:${teacher.email}`} className="text-blue-600 hover:underline">
+                      {teacher.email}
+                    </a>
+                  ) : '-'}
+                </td>
+                <td className="p-4 text-right">
+                  <div className="flex justify-end gap-2">
+                    <button
+                      onClick={() => handleEdit(teacher, 'teacher')}
+                      className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg"
+                      disabled={teacher.id && teacher.id.startsWith && teacher.id.startsWith('course-')}
+                      title={teacher.id?.startsWith?.('course-') ? "Professor vindo de curso, não pode ser editado" : "Editar"}
+                    >
+                      <Edit size={16} />
+                    </button>
+                    <button
+                      onClick={() => handleDelete(teacher.id, 'teacher')}
+                      className="p-2 text-red-600 hover:bg-red-50 rounded-lg"
+                      disabled={teacher.id && teacher.id.startsWith && teacher.id.startsWith('course-')}
+                      title={teacher.id?.startsWith?.('course-') ? "Professor vindo de curso, não pode ser excluído" : "Excluir"}
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    );
+  };
 
   // --- RENDER BLOG TABLE ---
   const renderBlogTable = () => (
@@ -2228,7 +2425,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
                   </div>
 
                   <form onSubmit={handleSave} className="space-y-6 max-w-3xl mx-auto">
-                    {/* ... (Existing Form Code) ... */}
                     {activeTab === 'courses' && (
                       <>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -2419,6 +2615,16 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
                                  {uploadedImage ? "Foto Selecionada" : "Escolher Foto"}
                                </div>
                              </div>
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                          <div>
+                            <label className="text-xs font-bold text-gray-500 uppercase ml-1">WhatsApp</label>
+                            <input type="text" value={teacherData.whatsapp} onChange={e => setTeacherData({...teacherData, whatsapp: e.target.value})} className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-[#9A0000] outline-none bg-white text-gray-900 placeholder:text-gray-400" />
+                          </div>
+                          <div>
+                            <label className="text-xs font-bold text-gray-500 uppercase ml-1">E-mail</label>
+                            <input type="email" value={teacherData.email} onChange={e => setTeacherData({...teacherData, email: e.target.value})} className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-[#9A0000] outline-none bg-white text-gray-900 placeholder:text-gray-400" />
                           </div>
                         </div>
                       </>
