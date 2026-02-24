@@ -1,3 +1,4 @@
+import { DEFAULT_COURSE_IMAGE } from './constants';
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from './services/supabase';
 import Navbar from './components/Navbar';
