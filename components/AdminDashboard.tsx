@@ -1,5 +1,6 @@
 // ==================== IMPORTS (NO TOPO) ====================
 import React, { useState, useEffect, useCallback } from 'react';
+import { DEFAULT_COURSE_IMAGE } from '../constants';
 import { 
   ArrowLeft, Plus, BookOpen, GraduationCap, Save, X, CheckCircle2, 
   Image as ImageIcon, Layout, FileText, DollarSign, Calendar, User, 
@@ -16,7 +17,7 @@ import { listStudents, createStudent, updateStudent, deleteStudent, updatePasswo
 import { supabase, CLIENT_ID } from '../services/supabase';
 import Modal from './Modal';
 
-// ==================== CONSTANTES E INTERFACES (FORA DO COMPONENTE) ====================
+// ==================== CONSTANTES E INTERFACES ====================
 interface AdminDashboardProps {
   onBack: () => void;
   onAddCourse?: (course: Course) => void;
@@ -312,7 +313,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
 
   // Estados dos Formulários
   const [courseData, setCourseData] = useState({
-    title: '', instructor: '', instagram: '', date: '', price: '', category: 'Confeitaria', description: '', capacity: '30'
+    title: '', instructor: '', instagram: '', date: '', price: '', category: 'Confeitaria', description: '', capacity: '30', unit: '', image_url: ''
   });
   const [studentData, setStudentData] = useState({ 
     name: '', 
@@ -332,9 +333,59 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
   });
   const [blogData, setBlogData] = useState({ title: '', author: '', category: 'Dicas', content: '', tags: '' });
   
+  // ========== ESTADO ADICIONADO ==========
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
 
-  // ========== FUNÇÕES AUXILIARES (AGORA DENTRO DO COMPONENTE) ==========
+  // Upload de imagem para o Storage do Supabase (CORRIGIDO)
+  const handleCourseImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Preview local
+    const localUrl = URL.createObjectURL(file);
+    setCourseData(prev => ({ ...prev, image_url: localUrl }));
+
+    // Sanitiza o nome: apenas timestamp e extensão
+    const extension = file.name.split('.').pop();
+    const fileName = `course-${Date.now()}.${extension}`;
+
+    try {
+      // Upload para o Storage
+      const { error: uploadError } = await supabase.storage
+        .from('course-images')
+        .upload(fileName, file);
+
+      if (uploadError) throw uploadError;
+
+      // Obtém URL pública
+      const { data: publicUrlData } = supabase.storage
+        .from('course-images')
+        .getPublicUrl(fileName);
+
+      if (publicUrlData) {
+        console.log('URL pública gerada:', publicUrlData.publicUrl);
+        setCourseData(prev => ({ ...prev, image_url: publicUrlData.publicUrl }));
+      } else {
+        throw new Error('Não foi possível obter a URL pública');
+      }
+    } catch (error) {
+      console.error('Erro detalhado:', error);
+      setModal({
+        isOpen: true,
+        type: 'error',
+        message: 'Erro ao fazer upload da imagem. O curso será salvo sem imagem.'
+      });
+      // Remove a URL local para não salvar blob no banco
+      setCourseData(prev => ({ ...prev, image_url: '' }));
+    }
+  };
+
+  // Função para limpar a imagem personalizada (usar padrão)
+  const handleClearImage = () => {
+    setCourseData(prev => ({ ...prev, image_url: '' }));
+  };
+
+  // ========== FUNÇÕES AUXILIARES ==========
 
   // Excluir solicitação administrativa
   const handleDeleteAdminRequest = async (requestId: string) => {
@@ -483,7 +534,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
                     <Calendar size={12} /> {course.date ? new Date(course.date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' }) : 'Data não definida'}
                   </span>
                   <span className="inline-flex items-center gap-1">
-                    <DollarSign size={12} /> R$ {course.price} (por aluno)
+                    <DollarSign size={12} /> R$ {typeof course.price === 'number' ? course.price.toFixed(2) : Number(course.price).toFixed(2)} (por aluno)
                   </span>
                   <span className="inline-flex items-center gap-1">
                     <Tag size={12} /> {course.category}
@@ -523,11 +574,11 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
               <button
                 key={unit}
                 onClick={() => handleUnitClick(unit as 'Bangu' | 'Campo Grande' | 'Duque de Caxias' | 'Geral')}
-                className={`px-4 py-2 rounded-lg font-medium transition-all ${
+                className={`px-4 py-2 rounded-lg font-medium transition-all ${(
                   selectedUnitStats === unit
                     ? 'bg-[#9A0000] text-white'
                     : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
+                )}`}
               >
                 {unit}
               </button>
@@ -914,7 +965,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
   const handleAddNew = () => {
     setEditingId(null);
     setUploadedImage(null);
-    setCourseData({ title: '', instructor: '', instagram: '', date: '', price: '', category: 'Confeitaria', description: '', capacity: '30' });
+    setCourseData({ title: '', instructor: '', instagram: '', date: '', price: '', category: 'Confeitaria', description: '', capacity: '30', unit: '', image_url: '' });
     setStudentData({ name: '', email: '', cpf: '', whatsapp: '', status: 'Ativo', course: '', unit: '' });
     setTeacherData({ name: '', specialty: '', instagram: '', whatsapp: '', email: '' });
     setBlogData({ title: '', author: '', category: 'Dicas', content: '', tags: '' });
@@ -923,18 +974,20 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
 
   const handleEdit = (item: any, type: 'course' | 'student' | 'teacher' | 'blog') => {
     setEditingId(item.id);
-    setUploadedImage(item.image || item.avatar || null); 
+    setUploadedImage(item.image || item.avatar || null);
     if (type === 'course') {
       const c = item as AdminCourse;
       setCourseData({
         title: c.title,
         instructor: c.instructor,
         instagram: c.instagram || '',
-        date: 'Data Existente', 
-        price: c.price.toString(),
+        date: c.date || '',
+        price: c.price?.toString() || '',
         category: c.category,
         description: c.description || '',
-        capacity: c.capacity.toString()
+        capacity: c.capacity?.toString() || '30',
+        unit: c.unit || c.location || '',
+        image_url: c.image_url || '',
       });
     } else if (type === 'student') {
       setStudentData({
@@ -987,14 +1040,16 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
 
     try {
       if (type === 'course') {
+        const { error } = await supabase.from('admin_courses').delete().eq('id', id);
+        if (error) throw error;
         setCoursesList(prev => prev.filter(c => c.id !== id));
+        window.dispatchEvent(new CustomEvent('courses-updated')); // <-- ADICIONADO
       } else if (type === 'student') {
         const studentId = typeof id === 'string' ? id : String(id);
         await deleteStudent(studentId);
         await loadStudents();
         setSelectedStudentsForCert(prev => prev.filter(existingId => existingId !== studentId));
       } else if (type === 'teacher') {
-        // Remove apenas se for um id real da tabela admin_teachers
         if (typeof id === 'string' && !id.startsWith('course-')) {
           const { error } = await supabase.from('admin_teachers').delete().eq('id', id);
           if (error) throw error;
@@ -1019,6 +1074,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    // ========== BASE PAYLOAD ADICIONADO ==========
     const basePayload = {
       section: activeTab,
       mode: editingId ? 'update' : 'create',
@@ -1029,12 +1085,81 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
     let shouldShowSuccess = false;
 
     if (activeTab === 'courses') {
-      payload = {
-        ...basePayload,
-        data: courseData,
-        has_image: Boolean(uploadedImage),
+      // Validações básicas
+      if (!courseData.title || !courseData.instructor || !courseData.price) {
+        setModal({ isOpen: true, type: 'warning', message: 'Preencha os campos obrigatórios: título, instrutor e preço.' });
+        return;
+      }
+
+      // Formata a data para o formato aceito pelo banco (YYYY-MM-DD)
+      let formattedDate = null;
+      if (courseData.date && courseData.date.trim() !== '') {
+        if (/^\d{4}-\d{2}-\d{2}$/.test(courseData.date)) {
+          formattedDate = courseData.date;
+        } else {
+          try {
+            const dateObj = new Date(courseData.date);
+            if (!isNaN(dateObj.getTime())) {
+              formattedDate = dateObj.toISOString().split('T')[0];
+            }
+          } catch (e) {
+            console.warn('Data inválida:', courseData.date);
+          }
+        }
+      }
+
+      const coursePayload = {
+        title: courseData.title.trim(),
+        instructor: courseData.instructor.trim(),
+        instagram: courseData.instagram?.trim() || null,
+        date: formattedDate,
+        price: parseFloat(courseData.price) || null,
+        category: courseData.category,
+        description: courseData.description?.trim() || null,
+        capacity: parseInt(courseData.capacity) || null,
+        unit: courseData.unit || null,
+        image_url: courseData.image_url || null, // null indica que não tem imagem personalizada
       };
-      shouldShowSuccess = true;
+
+      try {
+        let result;
+        if (editingId) {
+          result = await supabase
+            .from('admin_courses')
+            .update(coursePayload)
+            .eq('id', editingId);
+        } else {
+          result = await supabase
+            .from('admin_courses')
+            .insert([coursePayload]);
+        }
+
+        if (result.error) {
+          console.error('Erro do Supabase:', result.error);
+          setModal({
+            isOpen: true,
+            type: 'error',
+            message: `Erro ao salvar: ${result.error.message} (código ${result.error.code})`
+          });
+          return;
+        }
+
+        await loadCourses();
+        // Dispara um evento para notificar outros componentes
+        window.dispatchEvent(new CustomEvent('courses-updated'));
+        setCourseData({ title: '', instructor: '', instagram: '', date: '', price: '', category: 'Confeitaria', description: '', capacity: '30', unit: '', image_url: '' });
+        setEditingId(null);
+        shouldShowSuccess = true;
+        successMessage = editingId ? 'Curso atualizado com sucesso!' : 'Curso criado com sucesso!';
+      } catch (error: any) {
+        console.error('Exceção no salvamento:', error);
+        setModal({
+          isOpen: true,
+          type: 'error',
+          message: `Erro inesperado: ${error.message || 'Contate o suporte.'}`
+        });
+        return;
+      }
     } else if (activeTab === 'students') {
       const normalizedStatus = (studentData.status || 'Ativo').trim() || 'Ativo';
       const normalizedCourse = studentData.course.trim();
@@ -1087,7 +1212,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
         return;
       }
     } else if (activeTab === 'teachers') {
-      // Validação básica
       if (!teacherData.name) {
         setModal({ isOpen: true, type: 'warning', message: 'Informe o nome do professor.' });
         return;
@@ -1103,7 +1227,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
 
       try {
         if (editingId && typeof editingId === 'string' && !editingId.startsWith('course-')) {
-          // Atualiza professor existente na tabela admin_teachers
           const { error } = await supabase
             .from('admin_teachers')
             .update(teacherPayload)
@@ -1111,7 +1234,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
           if (error) throw error;
           successMessage = 'Professor atualizado com sucesso!';
         } else {
-          // Cria novo professor na tabela admin_teachers
           const { error } = await supabase
             .from('admin_teachers')
             .insert([teacherPayload]);
@@ -1119,7 +1241,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
           successMessage = 'Professor cadastrado com sucesso!';
         }
 
-        await loadTeachers(); // recarrega a lista
+        await loadTeachers();
         setTeacherData({ name: '', specialty: '', instagram: '', whatsapp: '', email: '' });
         setEditingId(null);
         shouldShowSuccess = true;
@@ -1281,11 +1403,11 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
                                 <div 
                                     key={unit.name} 
                                     onClick={() => setSelectedUnitStats(unit.name as any)}
-                                    className={`relative p-4 rounded-xl border transition-all cursor-pointer group ${(
+                                    className={`relative p-4 rounded-xl border transition-all cursor-pointer group ${
                                         selectedUnitStats === unit.name 
                                             ? 'border-[#9A0000] ring-1 ring-[#9A0000]/10 bg-red-50/20' 
                                             : 'border-gray-100 hover:border-gray-200 hover:bg-gray-50'
-                                    )}`}
+                                    }`}
                                 >
                                     <div className="flex justify-between items-center mb-3">
                                         <div className="flex items-center gap-2">
@@ -2053,10 +2175,10 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
                                   <div className="flex items-center gap-2 mb-1 flex-wrap">
                                     <span className="font-bold text-gray-800">{req.email}</span>
                                     {req.type !== 'certificate_request' && (
-                                      <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${
+                                      <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${(
                                         req.type === 'password_reset_request' ? 'bg-yellow-100 text-yellow-700' :
                                         req.type === 'data_change_request' ? 'bg-blue-100 text-blue-700' : ''
-                                      }`}>
+                                      )}`}>
                                         {req.type === 'password_reset_request' ? '🔐 Reset de senha' :
                                          req.type === 'data_change_request' ? '✏️ Correção de dados' : ''}
                                       </span>
@@ -2429,18 +2551,18 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
                       <>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                           <div>
-                            <label className="text-xs font-bold text-gray-500 uppercase ml-1">Título</label>
-                            <input required type="text" value={courseData.title} onChange={e => setCourseData({...courseData, title: e.target.value})} className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-[#9A0000] outline-none bg-white text-gray-900 placeholder:text-gray-400" />
+                            <label className="text-xs font-bold text-gray-500 uppercase ml-1">Título *</label>
+                            <input required type="text" value={courseData.title} onChange={e => setCourseData({...courseData, title: e.target.value})} className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-[#9A0000] outline-none bg-white text-gray-900" />
                           </div>
                           <div>
-                            <label className="text-xs font-bold text-gray-500 uppercase ml-1">Instrutor</label>
-                            <input required type="text" value={courseData.instructor} onChange={e => setCourseData({...courseData, instructor: e.target.value})} className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-[#9A0000] outline-none bg-white text-gray-900 placeholder:text-gray-400" />
+                            <label className="text-xs font-bold text-gray-500 uppercase ml-1">Instrutor *</label>
+                            <input required type="text" value={courseData.instructor} onChange={e => setCourseData({...courseData, instructor: e.target.value})} className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-[#9A0000] outline-none bg-white text-gray-900" />
                           </div>
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                           <div>
-                            <label className="text-xs font-bold text-gray-500 uppercase ml-1">Preço</label>
-                            <input required type="number" step="0.01" value={courseData.price} onChange={e => setCourseData({...courseData, price: e.target.value})} className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-[#9A0000] outline-none bg-white text-gray-900 placeholder:text-gray-400" />
+                            <label className="text-xs font-bold text-gray-500 uppercase ml-1">Preço *</label>
+                            <input required type="number" step="0.01" value={courseData.price} onChange={e => setCourseData({...courseData, price: e.target.value})} className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-[#9A0000] outline-none bg-white text-gray-900" />
                           </div>
                           <div>
                             <label className="text-xs font-bold text-gray-500 uppercase ml-1">Categoria</label>
@@ -2449,18 +2571,65 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
                             </select>
                           </div>
                           <div>
-                             <label className="text-xs font-bold text-gray-500 uppercase ml-1">Imagem</label>
-                             <div className="relative">
-                               <input type="file" onChange={handleImageUpload} className="absolute inset-0 opacity-0 cursor-pointer" />
-                               <div className="w-full px-4 py-3 rounded-xl border border-dashed border-gray-300 text-gray-500 text-center text-sm hover:border-[#9A0000] bg-white">
-                                 {uploadedImage ? "Imagem Selecionada" : "Escolher Arquivo"}
-                               </div>
-                             </div>
+                            <label className="text-xs font-bold text-gray-500 uppercase ml-1">Capacidade</label>
+                            <input type="number" value={courseData.capacity} onChange={e => setCourseData({...courseData, capacity: e.target.value})} className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-[#9A0000] outline-none bg-white text-gray-900" />
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                          <div>
+                            <label className="text-xs font-bold text-gray-500 uppercase ml-1">Data do Curso</label>
+                            <input type="date" value={courseData.date} onChange={e => setCourseData({...courseData, date: e.target.value})} className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-[#9A0000] outline-none bg-white text-gray-900" />
+                          </div>
+                          <div>
+                            <label className="text-xs font-bold text-gray-500 uppercase ml-1">Instagram do Instrutor</label>
+                            <input type="text" value={courseData.instagram} onChange={e => setCourseData({...courseData, instagram: e.target.value})} placeholder="@usuario" className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-[#9A0000] outline-none bg-white text-gray-900" />
+                          </div>
+                        </div>
+                        <div>
+                          <label className="text-xs font-bold text-gray-500 uppercase ml-1">Imagem do Curso</label>
+                          <div className="relative">
+                            <input
+                              type="file"
+                              accept="image/*"
+                              onChange={handleCourseImageUpload}
+                              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                            />
+                            <div className="w-full h-32 rounded-xl border border-dashed border-gray-300 flex items-center justify-center text-gray-500 hover:border-[#9A0000] bg-white">
+                              {courseData.image_url ? (
+                                <img src={courseData.image_url} alt="Preview" className="h-full object-contain" />
+                              ) : (
+                                "Clique para fazer upload da imagem (deixe vazio para usar a imagem padrão)"
+                              )}
+                            </div>
+                          </div>
+                          {courseData.image_url && (
+                            <button
+                              type="button"
+                              onClick={handleClearImage}
+                              className="mt-2 text-sm text-red-600 hover:text-red-800 font-bold"
+                            >
+                              Remover imagem personalizada (usar padrão)
+                            </button>
+                          )}
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                          <div>
+                            <label className="text-xs font-bold text-gray-500 uppercase ml-1">Unidade</label>
+                            <select
+                              value={courseData.unit || ''}
+                              onChange={e => setCourseData({...courseData, unit: e.target.value})}
+                              className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-[#9A0000] outline-none bg-white text-gray-900"
+                            >
+                              <option value="">Selecione...</option>
+                              <option value="Bangu">Bangu</option>
+                              <option value="Campo Grande">Campo Grande</option>
+                              <option value="Duque de Caxias">Duque de Caxias</option>
+                            </select>
                           </div>
                         </div>
                         <div>
                           <label className="text-xs font-bold text-gray-500 uppercase ml-1">Descrição</label>
-                          <textarea rows={4} value={courseData.description} onChange={e => setCourseData({...courseData, description: e.target.value})} className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-[#9A0000] outline-none resize-none bg-white text-gray-900 placeholder:text-gray-400"></textarea>
+                          <textarea rows={4} value={courseData.description} onChange={e => setCourseData({...courseData, description: e.target.value})} className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-[#9A0000] outline-none resize-none bg-white text-gray-900"></textarea>
                         </div>
                       </>
                     )}

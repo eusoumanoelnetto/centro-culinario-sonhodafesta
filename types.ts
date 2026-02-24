@@ -1,4 +1,3 @@
-
 export interface Instructor {
   id: string;
   name: string;
@@ -13,9 +12,10 @@ export interface Course {
   title: string;
   category: string;
   instructor: string;
-  instagram?: string; // Novo campo para o perfil do professor
+  instagram?: string; // Perfil do professor
   price: number;
-  image: string;
+  image?: string; // Mantido para compatibilidade (fallback)
+  image_url?: string; // Novo campo, vem do banco
   duration: string;
   rating: number;
   description?: string;
@@ -23,6 +23,8 @@ export interface Course {
   modules?: string[];
   selectedSeat?: string;
   unit: string; // Unidade onde o curso será realizado
+  date?: string; // Data do curso (YYYY-MM-DD)
+  capacity?: number; // Capacidade de alunos
 }
 
 export type CartStatus = 'active' | 'removed' | 'purchased';

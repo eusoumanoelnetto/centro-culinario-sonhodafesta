@@ -34,16 +34,17 @@ import { fetchCartData, upsertCartItem, updateCartItemStatus, appendCartHistory,
 const logoUrl = '/assets/logo.webp'; // Substitua pelo URL real da logo
 
 const App: React.FC = () => {
+
   const [activeCategory, setActiveCategory] = useState('Todos');
   const [currentView, setCurrentView] = useState<'home' | 'details' | 'presencial' | 'catalog' | 'privacy' | 'cookies' | 'blog' | 'teacher-application' | 'contact' | 'profile' | 'checkout' | 'admin' | 'units' | 'teachers'>('home');
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
-  
+
   const [courses, setCourses] = useState<Course[]>(COURSES);
   const coursesRef = useRef<Course[]>(COURSES);
   const pendingCartSync = useRef<Promise<void> | null>(null);
-  
+
   const [blogPosts, setBlogPosts] = useState<BlogPost[]>(BLOG_POSTS);
-  
+
   const [cart, setCart] = useState<CartItem[]>([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [cartHistory, setCartHistory] = useState<CartHistoryEvent[]>([]);
@@ -63,6 +64,23 @@ const App: React.FC = () => {
   const [leadStatus, setLeadStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [leadFeedback, setLeadFeedback] = useState('');
   const [modal, setModal] = useState<{ isOpen: boolean; type?: 'warning' | 'success' | 'error'; title?: string; message: string; onConfirm?: () => void } | null>(null);
+
+  // Carregar cursos do Supabase
+  const loadCourses = React.useCallback(async () => {
+    const { data, error } = await supabase
+      .from('admin_courses')
+      .select('*')
+      .order('created_at', { ascending: false });
+    if (!error && data) setCourses(data);
+  }, []);
+
+  React.useEffect(() => {
+    loadCourses();
+    // Listener para atualização de cursos
+    const handler = () => loadCourses();
+    window.addEventListener('courses-updated', handler);
+    return () => window.removeEventListener('courses-updated', handler);
+  }, [loadCourses]);
 
   useEffect(() => {
     coursesRef.current = courses;

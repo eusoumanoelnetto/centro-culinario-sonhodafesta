@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Star, Clock, Heart, Instagram } from 'lucide-react';
 import { Course } from '../types';
 
@@ -11,6 +11,28 @@ interface CourseCardProps {
 }
 
 const CourseCard: React.FC<CourseCardProps> = ({ course, onClick, isFavorite = false, onToggleFavorite, compact = false }) => {
+  console.log('CourseCard props:', course);
+  const [imgError, setImgError] = useState(false);
+
+  const handleImageError = () => {
+    setImgError(true);
+  };
+
+  // Função para formatar a data corretamente (sem problemas de fuso horário)
+  const formatDate = (dateStr: string) => {
+    if (!dateStr) return 'Data não definida';
+    // Assume que a data está no formato YYYY-MM-DD
+    const [year, month, day] = dateStr.split('-');
+    if (!year || !month || !day) return dateStr;
+    const date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+    return date.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' });
+  };
+
+  // Define a fonte da imagem: prioriza image_url, depois image, depois placeholder
+  const imageSrc = imgError 
+    ? 'https://via.placeholder.com/300x200?text=Imagem+indisponível' 
+    : (course.image_url || course.image || 'https://via.placeholder.com/300x200?text=Curso');
+
   return (
     <div 
       onClick={() => onClick(course)}
@@ -20,8 +42,9 @@ const CourseCard: React.FC<CourseCardProps> = ({ course, onClick, isFavorite = f
       {/* Image Area */}
       <div className={`relative ${compact ? 'h-36' : 'h-36 md:h-60'} overflow-hidden`}>
         <img 
-          src={course.image} 
+          src={imageSrc}
           alt={course.title}
+          onError={handleImageError}
           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
         />
         <div className="absolute top-2 left-2 md:top-3 md:left-3">
@@ -77,6 +100,13 @@ const CourseCard: React.FC<CourseCardProps> = ({ course, onClick, isFavorite = f
         <div className={`text-gray-500 ${compact ? 'text-xs mb-2' : 'text-[10px] md:text-sm mb-2 md:mb-4'}`}>
           Unidade: <span className="text-gray-700 font-medium">{course.unit ? course.unit : 'Não informada'}</span>
         </div>
+        
+        {/* Data formatada corretamente */}
+        {course.date && (
+          <div className={`text-gray-500 ${compact ? 'text-xs mb-2' : 'text-[10px] md:text-sm mb-2 md:mb-4'}`}>
+            Data: <span className="text-gray-700 font-medium">{formatDate(course.date)}</span>
+          </div>
+        )}
         
         <div className={`mt-auto ${compact ? 'pt-2' : 'pt-2 md:pt-4'} border-t border-gray-50 flex items-end justify-between`}>
           <div>

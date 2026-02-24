@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { ArrowLeft, Search, Filter, BookOpen } from 'lucide-react';
 import CourseCard from './CourseCard';
@@ -9,7 +8,7 @@ interface CatalogProps {
   onBack: () => void;
   onCourseClick: (course: Course) => void;
   initialCategory?: string;
-  courses: Course[]; 
+  courses: Course[];
   favorites?: string[];
   onToggleFavorite?: (course: Course) => void;
 }
@@ -25,7 +24,6 @@ const Catalog: React.FC<CatalogProps> = ({
   const [activeCategory, setActiveCategory] = useState(initialCategory);
   const [searchTerm, setSearchTerm] = useState('');
 
-  // Sync state if initialCategory prop changes (e.g. via footer navigation while mounted)
   useEffect(() => {
     setActiveCategory(initialCategory);
   }, [initialCategory]);
@@ -66,7 +64,7 @@ const Catalog: React.FC<CatalogProps> = ({
         </div>
       </div>
 
-      {/* Filters & Search - Floating Section */}
+      {/* Filters & Search */}
       <div className="max-w-7xl mx-auto px-4 -mt-8 relative z-20">
         <div className="bg-white p-4 rounded-2xl shadow-xl border border-gray-100 flex flex-col md:flex-row gap-4 items-center justify-between">
           
