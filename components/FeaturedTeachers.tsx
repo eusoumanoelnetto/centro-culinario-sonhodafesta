@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Instructor } from '../types';
 import { ArrowRight, ChevronLeft, ChevronRight } from 'lucide-react';
+import { DEFAULT_TEACHER_IMAGE } from '../constants';
 
 interface FeaturedTeachersProps {
   teachers: Instructor[];
@@ -67,17 +68,18 @@ const FeaturedTeachers: React.FC<FeaturedTeachersProps> = ({
               >
                 <div className="w-20 h-20 md:w-24 md:h-24 rounded-full overflow-hidden border-4 border-white shadow-lg group-hover:shadow-xl transition-shadow mb-2">
                   <img
-                    src={teacher.avatar || 'https://via.placeholder.com/100?text=Prof'}
+                    src={teacher.avatar || DEFAULT_TEACHER_IMAGE}
                     alt={teacher.name}
                     className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
                     onError={(e) => {
-                      e.currentTarget.src = 'https://via.placeholder.com/100?text=Erro';
+                      e.currentTarget.src = DEFAULT_TEACHER_IMAGE;
                     }}
                   />
                 </div>
                 <h3 className="font-bold text-[#9A0000] text-xs md:text-sm group-hover:underline">
                   {teacher.name}
                 </h3>
+                {/* Especialidade abaixo do nome */}
                 <p className="text-xs text-gray-500 mt-1 line-clamp-1">{teacher.role}</p>
                 <button className="mt-2 text-[#d20000] font-bold text-xs flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                   Ver cursos <ArrowRight size={12} />
