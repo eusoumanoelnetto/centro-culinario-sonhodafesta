@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from './services/supabase';
 import Navbar from './components/Navbar';
 import Hero from './components/Hero';
@@ -19,8 +19,9 @@ import SeatSelector from './components/SeatSelector';
 import AdminDashboard from './components/AdminDashboard';
 import Units from './components/Units';
 import Teachers from './components/Teachers';
+import FeaturedTeachers from './components/FeaturedTeachers'; // <-- novo componente
 import Modal from './components/Modal';
-import { Course, BlogPost, CartItem, CartHistoryEvent } from './types';
+import { Course, BlogPost, CartItem, CartHistoryEvent, Instructor } from './types';
 import { CATEGORIES, COURSES, TESTIMONIALS, BLOG_POSTS, DEFAULT_COURSE_IMAGE } from './constants';
 import { 
   PartyPopper, Palette, Scissors, Cake, Star, 
@@ -37,8 +38,9 @@ const App: React.FC = () => {
   const [activeCategory, setActiveCategory] = useState('Todos');
   const [currentView, setCurrentView] = useState<'home' | 'details' | 'presencial' | 'catalog' | 'privacy' | 'cookies' | 'blog' | 'teacher-application' | 'contact' | 'profile' | 'checkout' | 'admin' | 'units' | 'teachers'>('home');
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
+  const [instructorFilter, setInstructorFilter] = useState<string | null>(null);
 
-  const [courses, setCourses] = useState<Course[]>([]); // Inicializa vazio, será preenchido pelo loadCourses
+  const [courses, setCourses] = useState<Course[]>([]);
   const coursesRef = useRef<Course[]>([]);
   const pendingCartSync = useRef<Promise<void> | null>(null);
 
@@ -64,14 +66,32 @@ const App: React.FC = () => {
   const [leadFeedback, setLeadFeedback] = useState('');
   const [modal, setModal] = useState<{ isOpen: boolean; type?: 'warning' | 'success' | 'error'; title?: string; message: string; onConfirm?: () => void } | null>(null);
 
+  // Estado para os professores em destaque (reais)
+  const [featuredTeachers, setFeaturedTeachers] = useState<Instructor[]>([]);
+
+  // Evento global para navegação customizada
+  useEffect(() => {
+    const handleNavigateEvent = (e: CustomEvent) => {
+      const detail = e.detail;
+      if (typeof detail === 'string') {
+        handleNavigate(detail);
+      } else if (detail.page === 'catalog' && detail.filter?.instructor) {
+        setInstructorFilter(detail.filter.instructor);
+        setActiveCategory('Todos');
+        handleNavigate('catalog');
+      }
+    };
+    window.addEventListener('navigate-to', handleNavigateEvent as EventListener);
+    return () => window.removeEventListener('navigate-to', handleNavigateEvent as EventListener);
+  }, []);
+
   // Carregar cursos do Supabase
-  const loadCourses = React.useCallback(async () => {
+  const loadCourses = useCallback(async () => {
     const { data, error } = await supabase
       .from('admin_courses')
       .select('*')
       .order('created_at', { ascending: false });
     if (!error && data) {
-      // Mapeia os dados para incluir o campo 'image' (com fallback para a imagem padrão)
       const formattedCourses: Course[] = data.map((item: any) => ({
         id: item.id,
         title: item.title,
@@ -79,10 +99,9 @@ const App: React.FC = () => {
         description: item.description || '',
         price: item.price,
         category: item.category,
-        rating: 4.5, // valor fixo ou vir do banco se existir
-        duration: '4h', // valor fixo
+        rating: 4.5,
+        duration: '4h',
         image_url: item.image_url || null,
-        // Se image_url for null, usa a imagem padrão; caso contrário, usa a personalizada
         image: item.image_url || DEFAULT_COURSE_IMAGE,
         instagram: item.instagram || '',
         date: item.date,
@@ -103,6 +122,30 @@ const App: React.FC = () => {
   useEffect(() => {
     coursesRef.current = courses;
   }, [courses]);
+
+  // Carregar professores para o carrossel (da tabela admin_teachers)
+  useEffect(() => {
+    const loadTeachers = async () => {
+      const { data, error } = await supabase
+        .from('admin_teachers')
+        .select('*')
+        .order('name');
+      if (!error && data) {
+        const formatted: Instructor[] = data.map((t: any) => ({
+          id: t.id,
+          name: t.name,
+          role: t.specialty || '',
+          bio: t.bio || '',
+          avatar: t.avatar || '',
+          instagram: t.instagram || '',
+        }));
+        setFeaturedTeachers(formatted);
+      } else {
+        console.error('Erro ao carregar professores:', error);
+      }
+    };
+    loadTeachers();
+  }, []);
 
   const resolveCourseSnapshot = (courseId: string, fallback: Partial<Course> = {}): Course => {
     const catalogCourse = coursesRef.current.find(course => course.id === courseId);
@@ -185,7 +228,7 @@ const App: React.FC = () => {
     if (savedCart) {
       try {
         const rawCart = JSON.parse(savedCart);
-        setCart(rawCart); // Simplificado; ajuste conforme necessário
+        setCart(rawCart);
       } catch (error) {
         console.error('Erro ao restaurar carrinho:', error);
       }
@@ -393,6 +436,7 @@ const App: React.FC = () => {
     if (page === 'home') {
       setCurrentView('home');
       setSelectedCourse(null);
+      setInstructorFilter(null); // limpa filtro ao voltar para home
     } else if (page === 'presencial') {
       setCurrentView('presencial');
       setSelectedCourse(null);
@@ -666,6 +710,8 @@ const App: React.FC = () => {
             courses={courses}
             favorites={favorites}
             onToggleFavorite={handleToggleFavorite}
+            instructorFilter={instructorFilter}
+            onClearInstructorFilter={() => setInstructorFilter(null)}
           />
         );
       case 'blog':
@@ -694,13 +740,22 @@ const App: React.FC = () => {
       case 'cookies':
         return <CookiePolicy onBack={() => handleNavigate('home')} />;
       case 'teachers':
-        return <Teachers onBack={() => handleNavigate('home')} />;
+        return (
+          <Teachers 
+            onBack={() => handleNavigate('home')} 
+            onViewCourses={(instructor) => {
+              setInstructorFilter(instructor);
+              setCurrentView('catalog');
+            }}
+          />
+        );
       case 'home':
       default:
         return (
           <>
             <Hero onViewCatalog={() => handleNavigate('catalog')} />
 
+            {/* Categories */}
             <section className="py-16 border-b border-gray-100">
               <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div className="text-center mb-12">
@@ -738,6 +793,18 @@ const App: React.FC = () => {
               </div>
             </section>
 
+            {/* Featured Teachers (carregados do banco) */}
+            <FeaturedTeachers 
+              teachers={featuredTeachers} 
+              onTeacherClick={(teacherName) => {
+                setInstructorFilter(teacherName);
+                setActiveCategory('Todos');
+                handleNavigate('catalog');
+              }}
+              onViewAllClick={() => handleNavigate('teachers')}
+            />
+
+            {/* Featured Courses */}
             <section className="py-20 bg-white">
               <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div className="flex flex-col md:flex-row justify-between items-end mb-12 gap-4">
@@ -769,6 +836,7 @@ const App: React.FC = () => {
               </div>
             </section>
 
+            {/* Why Choose Us */}
             <section className="py-20 bg-[#9A0000] text-white relative overflow-hidden">
               <div 
                 className="absolute inset-0 opacity-10" 
@@ -820,6 +888,7 @@ const App: React.FC = () => {
               </div>
             </section>
 
+            {/* Testimonials Carousel */}
             <section 
               className="py-24 bg-[#fcfaf8]" 
               onMouseEnter={() => setIsHoveringTestimonials(true)} 

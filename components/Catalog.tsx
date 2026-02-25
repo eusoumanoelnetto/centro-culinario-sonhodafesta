@@ -11,6 +11,8 @@ interface CatalogProps {
   courses: Course[];
   favorites?: string[];
   onToggleFavorite?: (course: Course) => void;
+  instructorFilter?: string | null;
+  onClearInstructorFilter?: () => void;
 }
 
 const Catalog: React.FC<CatalogProps> = ({ 
@@ -19,7 +21,9 @@ const Catalog: React.FC<CatalogProps> = ({
   initialCategory = 'Confeitaria', 
   courses,
   favorites = [],
-  onToggleFavorite
+  onToggleFavorite,
+  instructorFilter,
+  onClearInstructorFilter
 }) => {
   const [activeCategory, setActiveCategory] = useState(initialCategory);
   const [searchTerm, setSearchTerm] = useState('');
@@ -32,7 +36,8 @@ const Catalog: React.FC<CatalogProps> = ({
     const matchesCategory = activeCategory === 'Todos' || course.category === activeCategory;
     const matchesSearch = course.title.toLowerCase().includes(searchTerm.toLowerCase()) || 
                           course.instructor.toLowerCase().includes(searchTerm.toLowerCase());
-    return matchesCategory && matchesSearch;
+    const matchesInstructor = instructorFilter ? course.instructor === instructorFilter : true;
+    return matchesCategory && matchesSearch && matchesInstructor;
   });
 
   return (
@@ -116,7 +121,23 @@ const Catalog: React.FC<CatalogProps> = ({
             <Filter size={20} />
             {filteredCourses.length} {filteredCourses.length === 1 ? 'Curso encontrado' : 'Cursos encontrados'}
           </h2>
+          {instructorFilter && (
+            <button
+              onClick={onClearInstructorFilter}
+              className="text-sm text-[#9A0000] font-bold hover:underline"
+            >
+              Limpar filtro por professor
+            </button>
+          )}
         </div>
+
+        {instructorFilter && (
+          <div className="mb-4 p-3 bg-[#fff304]/10 rounded-lg border border-[#fff304]/20">
+            <p className="text-sm text-gray-700">
+              Filtrando cursos do professor: <strong className="text-[#9A0000]">{instructorFilter}</strong>
+            </p>
+          </div>
+        )}
 
         {filteredCourses.length > 0 ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
@@ -138,7 +159,11 @@ const Catalog: React.FC<CatalogProps> = ({
             <h3 className="text-xl font-bold text-gray-700 mb-2">Nenhum curso encontrado</h3>
             <p className="text-gray-500">Tente mudar o termo de busca ou selecionar outra categoria.</p>
             <button 
-              onClick={() => {setSearchTerm(''); setActiveCategory('Todos');}}
+              onClick={() => {
+                setSearchTerm('');
+                setActiveCategory('Todos');
+                if (onClearInstructorFilter) onClearInstructorFilter();
+              }}
               className="mt-4 text-[#d20000] font-bold hover:underline"
             >
               Limpar filtros
