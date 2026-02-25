@@ -18,10 +18,10 @@ import CheckoutPage from './components/CheckoutPage';
 import SeatSelector from './components/SeatSelector';
 import AdminDashboard from './components/AdminDashboard';
 import Units from './components/Units';
-import Teachers from './components/Teachers'; // <-- import da página de professores
+import Teachers from './components/Teachers';
 import Modal from './components/Modal';
 import { Course, BlogPost, CartItem, CartHistoryEvent } from './types';
-import { CATEGORIES, COURSES, TESTIMONIALS, BLOG_POSTS } from './constants';
+import { CATEGORIES, COURSES, TESTIMONIALS, BLOG_POSTS, DEFAULT_COURSE_IMAGE } from './constants';
 import { 
   PartyPopper, Palette, Scissors, Cake, Star, 
   MapPin, Phone, Instagram, Youtube, Mail, ArrowRight, Award, ShieldCheck, Zap,
@@ -31,16 +31,15 @@ import { recordFormSubmission } from './services/formSubmissions';
 import { createLead } from './services/leads';
 import { fetchCartData, upsertCartItem, updateCartItemStatus, appendCartHistory, deleteCartHistoryByAction } from './services/cart';
 
-const logoUrl = '/assets/logo.webp'; // Substitua pelo URL real da logo
+const logoUrl = '/assets/logo.webp';
 
 const App: React.FC = () => {
-
   const [activeCategory, setActiveCategory] = useState('Todos');
   const [currentView, setCurrentView] = useState<'home' | 'details' | 'presencial' | 'catalog' | 'privacy' | 'cookies' | 'blog' | 'teacher-application' | 'contact' | 'profile' | 'checkout' | 'admin' | 'units' | 'teachers'>('home');
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
 
-  const [courses, setCourses] = useState<Course[]>(COURSES);
-  const coursesRef = useRef<Course[]>(COURSES);
+  const [courses, setCourses] = useState<Course[]>([]); // Inicializa vazio, será preenchido pelo loadCourses
+  const coursesRef = useRef<Course[]>([]);
   const pendingCartSync = useRef<Promise<void> | null>(null);
 
   const [blogPosts, setBlogPosts] = useState<BlogPost[]>(BLOG_POSTS);
@@ -71,12 +70,31 @@ const App: React.FC = () => {
       .from('admin_courses')
       .select('*')
       .order('created_at', { ascending: false });
-    if (!error && data) setCourses(data);
+    if (!error && data) {
+      // Mapeia os dados para incluir o campo 'image' (com fallback para a imagem padrão)
+      const formattedCourses: Course[] = data.map((item: any) => ({
+        id: item.id,
+        title: item.title,
+        instructor: item.instructor,
+        description: item.description || '',
+        price: item.price,
+        category: item.category,
+        rating: 4.5, // valor fixo ou vir do banco se existir
+        duration: '4h', // valor fixo
+        image_url: item.image_url || null,
+        // Se image_url for null, usa a imagem padrão; caso contrário, usa a personalizada
+        image: item.image_url || DEFAULT_COURSE_IMAGE,
+        instagram: item.instagram || '',
+        date: item.date,
+        unit: item.unit,
+        capacity: item.capacity,
+      }));
+      setCourses(formattedCourses);
+    }
   }, []);
 
   React.useEffect(() => {
     loadCourses();
-    // Listener para atualização de cursos
     const handler = () => loadCourses();
     window.addEventListener('courses-updated', handler);
     return () => window.removeEventListener('courses-updated', handler);
@@ -192,9 +210,6 @@ const App: React.FC = () => {
     localStorage.setItem('cart_history', JSON.stringify(cartHistory));
   }, [cartHistory]);
 
-  // Proteção de rota: só renderiza AdminDashboard se usuário estiver autenticado e navegou explicitamente para admin
-  // ... (outros useEffects existentes, como o de hidratação do Supabase, etc.)
-
   useEffect(() => {
     let isMounted = true;
 
@@ -256,7 +271,6 @@ const App: React.FC = () => {
     };
   }, [user?.studentId]);
 
-  // 🔌 Teste de conexão Supabase
   useEffect(() => {
     console.log('🚀 Supabase conectado:', supabase);
   }, []);
@@ -369,7 +383,6 @@ const App: React.FC = () => {
     }
   };
 
-  // Salvar página atual no localStorage sempre que mudar (apenas para usuários logados)
   useEffect(() => {
     if (user) {
       localStorage.setItem('current_view', currentView);
@@ -414,7 +427,7 @@ const App: React.FC = () => {
     } else if (page === 'units') {
       setCurrentView('units');
       setSelectedCourse(null);
-    } else if (page === 'teachers') { // <-- nova rota
+    } else if (page === 'teachers') {
       setCurrentView('teachers');
       setSelectedCourse(null);
     }
@@ -613,7 +626,6 @@ const App: React.FC = () => {
     ? courses 
     : courses.filter(c => c.category === activeCategory);
 
-  // Função que retorna o conteúdo baseado na view atual
   const renderContent = () => {
     switch (currentView) {
       case 'units':
@@ -681,7 +693,7 @@ const App: React.FC = () => {
         return <PrivacyPolicy onBack={() => handleNavigate('home')} />;
       case 'cookies':
         return <CookiePolicy onBack={() => handleNavigate('home')} />;
-      case 'teachers': // <-- nova view
+      case 'teachers':
         return <Teachers onBack={() => handleNavigate('home')} />;
       case 'home':
       default:
@@ -689,7 +701,6 @@ const App: React.FC = () => {
           <>
             <Hero onViewCatalog={() => handleNavigate('catalog')} />
 
-            {/* Categories */}
             <section className="py-16 border-b border-gray-100">
               <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div className="text-center mb-12">
@@ -727,7 +738,6 @@ const App: React.FC = () => {
               </div>
             </section>
 
-            {/* Featured Courses */}
             <section className="py-20 bg-white">
               <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div className="flex flex-col md:flex-row justify-between items-end mb-12 gap-4">
@@ -759,7 +769,6 @@ const App: React.FC = () => {
               </div>
             </section>
 
-            {/* Why Choose Us */}
             <section className="py-20 bg-[#9A0000] text-white relative overflow-hidden">
               <div 
                 className="absolute inset-0 opacity-10" 
@@ -811,7 +820,6 @@ const App: React.FC = () => {
               </div>
             </section>
 
-            {/* Testimonials Carousel */}
             <section 
               className="py-24 bg-[#fcfaf8]" 
               onMouseEnter={() => setIsHoveringTestimonials(true)} 
@@ -854,7 +862,6 @@ const App: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Dots Navigation */}
                 <div className="flex justify-center mt-8 gap-2">
                   {Array.from({ length: TESTIMONIALS.length - itemsPerPage + 1 }).map((_, idx) => (
                     <button
@@ -903,7 +910,6 @@ const App: React.FC = () => {
         />
       )}
 
-      {/* Cookie Consent Banner */}
       {showCookieConsent && (
         <div className="fixed bottom-4 left-4 z-[60] w-[calc(100%-2rem)] md:w-auto md:max-w-sm bg-white p-5 rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.12)] border border-gray-100 animate-in slide-in-from-bottom-10 fade-in duration-700">
           <div className="flex items-start gap-4">
@@ -1023,7 +1029,6 @@ const App: React.FC = () => {
         )}
       </main>
       
-      {/* Footer */}
       <footer className="bg-gray-900 text-white pt-20 pb-6">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           {currentView !== 'checkout' && currentView !== 'admin' && (
@@ -1055,7 +1060,7 @@ const App: React.FC = () => {
                 <li><a href="#" onClick={(e) => { e.preventDefault(); handleNavigate('home'); }} className="hover:text-[#fff304] transition-colors flex items-center gap-2">Início</a></li>
                 <li><a href="https://sonhodafesta.com.br" target="_blank" rel="noopener noreferrer" className="hover:text-[#fff304] transition-colors flex items-center gap-2 font-medium text-white">Loja Virtual</a></li>
                 <li><a href="#" onClick={(e) => { e.preventDefault(); handleNavigate('presencial'); }} className="hover:text-[#fff304] transition-colors flex items-center gap-2">Cursos Presenciais</a></li>
-                <li><a href="#" onClick={(e) => { e.preventDefault(); handleNavigate('teachers'); }} className="hover:text-[#fff304] transition-colors flex items-center gap-2">Nossos Professores</a></li> {/* <-- novo item */}
+                <li><a href="#" onClick={(e) => { e.preventDefault(); handleNavigate('teachers'); }} className="hover:text-[#fff304] transition-colors flex items-center gap-2">Nossos Professores</a></li>
                 <li><a href="#" onClick={(e) => { e.preventDefault(); handleNavigate('blog'); }} className="hover:text-[#fff304] transition-colors flex items-center gap-2">Blog</a></li>
                 <li><a href="#" onClick={(e) => { e.preventDefault(); handleNavigate('teacher-application'); }} className="text-[#fff304] font-bold hover:text-white transition-colors flex items-center gap-2">Quer dar aula?</a></li>
                 <li><a href="#" onClick={(e) => { e.preventDefault(); handleNavigate('units'); }} className="hover:text-[#fff304] transition-colors flex items-center gap-2">Nossas Unidades</a></li>
@@ -1118,7 +1123,6 @@ const App: React.FC = () => {
       </footer>
       <AIAssistant />
 
-      {/* Global Modal */}
       {modal && (
         <Modal
           isOpen={modal.isOpen}

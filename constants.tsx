@@ -288,4 +288,4 @@ export const BLOG_POSTS: BlogPost[] = [
 ];
 
 // ========== NOVA CONSTANTE ADICIONADA ==========
-export const DEFAULT_COURSE_IMAGE = 'https://omnuydikeejhiahkufwa.supabase.co/storage/v1/object/public/course-images/PADRAO.png';
+export const DEFAULT_COURSE_IMAGE = 'https://omnuydikeejhiahkufwa.supabase.co/storage/v1/object/public/course-images/PADRAO.webp';

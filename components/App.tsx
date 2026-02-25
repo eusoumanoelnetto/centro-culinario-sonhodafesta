@@ -760,14 +760,18 @@ const App: React.FC = () => {
                 </div>
 
                 <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 md:gap-8">
-                  {filteredCourses.slice(0, 6).map(course => (
-                    <CourseCard 
-                      key={course.id} 
-                      course={course} 
-                      onClick={handleCourseClick}
-                      isFavorite={favorites.includes(course.id)}
-                      onToggleFavorite={handleToggleFavorite}
-                    />
+                  {filteredCourses.slice(0, 6).map(course => {
+                    console.log('Curso:', course.title, 'image_url:', course.image_url);
+                    return (
+                      <CourseCard 
+                        key={course.id} 
+                        course={course} 
+                        onClick={handleCourseClick}
+                        isFavorite={favorites.includes(course.id)}
+                        onToggleFavorite={handleToggleFavorite}
+                      />
+                    );
+                  })}
                   ))}
                 </div>
               </div>

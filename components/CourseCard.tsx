@@ -18,17 +18,15 @@ const CourseCard: React.FC<CourseCardProps> = ({ course, onClick, isFavorite = f
     setImgError(true);
   };
 
-  // Função para formatar a data corretamente (sem problemas de fuso horário)
   const formatDate = (dateStr: string) => {
     if (!dateStr) return 'Data não definida';
-    // Assume que a data está no formato YYYY-MM-DD
     const [year, month, day] = dateStr.split('-');
     if (!year || !month || !day) return dateStr;
     const date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
     return date.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' });
   };
 
-  // Define a fonte da imagem: prioriza image_url, depois image, depois placeholder
+  // Define a fonte da imagem: prioriza image_url, depois image, e se erro, mostra placeholder
   const imageSrc = imgError 
     ? 'https://via.placeholder.com/300x200?text=Imagem+indisponível' 
     : (course.image_url || course.image || 'https://via.placeholder.com/300x200?text=Curso');
@@ -38,8 +36,6 @@ const CourseCard: React.FC<CourseCardProps> = ({ course, onClick, isFavorite = f
       onClick={() => onClick(course)}
       className={`group bg-white rounded-xl overflow-hidden hover:shadow-[0_20px_50px_rgba(154,0,0,0.1)] transition-all duration-300 border border-gray-100 flex flex-col h-full cursor-pointer ${compact ? 'text-sm' : ''}`}
     >
-      
-      {/* Image Area */}
       <div className={`relative ${compact ? 'h-36' : 'h-36 md:h-60'} overflow-hidden`}>
         <img 
           src={imageSrc}
@@ -67,7 +63,6 @@ const CourseCard: React.FC<CourseCardProps> = ({ course, onClick, isFavorite = f
         </button>
       </div>
       
-      {/* Content */}
       <div className={`${compact ? 'p-4' : 'p-3 md:p-6'} flex flex-col flex-grow`}>
         <div className={`flex items-center gap-2 ${compact ? 'mb-2' : 'mb-1 md:mb-3'}`}>
           <div className="flex text-[#fff304]">
@@ -101,7 +96,6 @@ const CourseCard: React.FC<CourseCardProps> = ({ course, onClick, isFavorite = f
           Unidade: <span className="text-gray-700 font-medium">{course.unit ? course.unit : 'Não informada'}</span>
         </div>
         
-        {/* Data formatada corretamente */}
         {course.date && (
           <div className={`text-gray-500 ${compact ? 'text-xs mb-2' : 'text-[10px] md:text-sm mb-2 md:mb-4'}`}>
             Data: <span className="text-gray-700 font-medium">{formatDate(course.date)}</span>
