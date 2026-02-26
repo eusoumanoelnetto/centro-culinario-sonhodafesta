@@ -1,3 +1,4 @@
+export const DEFAULT_BLOG_IMAGE = '/assets/default-blog.jpg'; // ajuste o caminho conforme seu projeto
 import React from 'react';
 import { Course, Category, Testimonial, BlogPost, Instructor } from './types';
 import { COURSE_DATA } from './courseData';

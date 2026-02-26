@@ -1,7 +1,8 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ArrowLeft, BookOpen, Search, Clock, User, Calendar, Tag, ChevronRight, Share2, Twitter, MessageCircle, Copy } from 'lucide-react';
 import { BLOG_POSTS } from '../constants';
+import { supabase } from '../services/supabase';
 import { BlogPost } from '../types';
 import Modal from './Modal';
 
@@ -17,8 +18,27 @@ const Blog: React.FC<BlogProps> = ({ onBack, posts = BLOG_POSTS }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedPost, setSelectedPost] = useState<BlogPost | null>(null);
   const [modal, setModal] = useState<{ isOpen: boolean; type: 'success' | 'error' | 'warning' | 'confirm'; message: string } | null>(null);
+  const [dbPosts, setDbPosts] = useState<BlogPost[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const filteredPosts = posts.filter(post => {
+  useEffect(() => {
+    async function fetchPosts() {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('admin_blog_posts')
+        .select('*')
+        .order('created_at', { ascending: false });
+      if (!error && data) {
+        setDbPosts(data);
+      } else {
+        setDbPosts([]);
+      }
+      setLoading(false);
+    }
+    fetchPosts();
+  }, []);
+
+  const filteredPosts = (dbPosts.length > 0 ? dbPosts : posts).filter(post => {
     const matchesCategory = activeCategory === 'Todos' || post.category === activeCategory;
     const matchesSearch = post.title.toLowerCase().includes(searchTerm.toLowerCase()) || 
                           post.excerpt.toLowerCase().includes(searchTerm.toLowerCase());
@@ -224,7 +244,15 @@ const Blog: React.FC<BlogProps> = ({ onBack, posts = BLOG_POSTS }) => {
 
       {/* Blog Grid */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-12">
-        {filteredPosts.length > 0 ? (
+        {loading ? (
+          <div className="text-center py-20 bg-white rounded-2xl border border-dashed border-gray-200">
+            <div className="inline-block p-4 bg-gray-50 rounded-full mb-4">
+              <Search size={40} className="text-gray-300 animate-spin" />
+            </div>
+            <h3 className="text-xl font-bold text-gray-700 mb-2">Carregando artigos...</h3>
+            <p className="text-gray-500">Aguarde enquanto buscamos os posts do blog.</p>
+          </div>
+        ) : filteredPosts.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             {filteredPosts.map(post => (
               <article 

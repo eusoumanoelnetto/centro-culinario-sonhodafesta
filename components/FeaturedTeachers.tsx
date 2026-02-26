@@ -79,8 +79,10 @@ const FeaturedTeachers: React.FC<FeaturedTeachersProps> = ({
                 <h3 className="font-bold text-[#9A0000] text-xs md:text-sm group-hover:underline">
                   {teacher.name}
                 </h3>
-                {/* Especialidade abaixo do nome */}
-                <p className="text-xs text-gray-500 mt-1 line-clamp-1">{teacher.role}</p>
+                {/* Especialidade com fallback */}
+                <p className="text-xs text-gray-500 mt-1 line-clamp-1">
+                  {teacher.role || 'Especialista'}
+                </p>
                 <button className="mt-2 text-[#d20000] font-bold text-xs flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                   Ver cursos <ArrowRight size={12} />
                 </button>

@@ -1,6 +1,6 @@
 // ==================== IMPORTS (NO TOPO) ====================
 import React, { useState, useEffect, useCallback } from 'react';
-import { DEFAULT_COURSE_IMAGE } from '../constants';
+import { DEFAULT_COURSE_IMAGE, DEFAULT_TEACHER_IMAGE } from '../constants';
 import { 
   ArrowLeft, Plus, BookOpen, GraduationCap, Save, X, CheckCircle2, 
   Image as ImageIcon, Layout, FileText, DollarSign, Calendar, User, 
@@ -8,7 +8,8 @@ import {
   MoreVertical, Search, Filter, Tag, Award, Phone, CheckSquare, Square, Mail, AlertCircle,
   MessageCircle, ChevronDown, FileUp, File as FileIcon, History, RefreshCw, Clock, FileCheck,
   Megaphone, UserPlus, Zap, Ban, UserCheck, BarChart3, AlertTriangle, BellRing, ArrowRight, PenTool,
-  TrendingUp, PieChart, Wallet, Send, ChevronRight, Crown, Trophy, MoreHorizontal, MapPin, Store, CalendarDays
+  TrendingUp, PieChart, Wallet, Send, ChevronRight, Crown, Trophy, MoreHorizontal, MapPin, Store, CalendarDays,
+  Briefcase
 } from 'lucide-react';
 import { Course, BlogPost, Student } from '../types';
 import { COURSES, BLOG_POSTS } from '../constants';
@@ -92,7 +93,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
   const [isLoadingStudents, setIsLoadingStudents] = useState(false);
   const [studentsError, setStudentsError] = useState<string | null>(null);
 
-  // Função para carregar professores do Supabase
+  // ==================== FUNÇÃO loadTeachers (CARREGA COM CONTAGEM DE CURSOS) ====================
   const loadTeachers = useCallback(async () => {
     if (!isAuthenticated) {
       setTeachersList([]);
@@ -102,55 +103,31 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
     setIsLoadingTeachers(true);
     setTeachersError(null);
     try {
-      console.log('Carregando professores...');
-      // Buscar professores cadastrados manualmente
-      const { data: teachersData, error: teachersError } = await supabase
+      const { data, error } = await supabase
         .from('admin_teachers')
         .select('*')
         .order('created_at', { ascending: false });
+      if (error) throw error;
 
-      if (teachersError) {
-        console.error('Erro ao buscar admin_teachers:', teachersError);
-        setTeachersError('Erro ao carregar professores.');
-        setTeachersList([]);
-        return;
-      }
-
-      // Buscar professores vinculados aos cursos reais (para fallback)
-      const { data: coursesData, error: coursesError } = await supabase
-        .from('admin_courses')
-        .select('instructor, specialty, instagram, whatsapp, email')
-        .order('created_at', { ascending: false });
-
-      if (coursesError) {
-        console.error('Erro ao buscar admin_courses:', coursesError);
-        // Não falha totalmente, apenas ignora os dados dos cursos
-      }
-
-      // Extrair professores únicos dos cursos
-      const courseTeachers = (coursesData || [])
-        .filter(c => c.instructor)
-        .map(c => ({
-          id: `course-${c.instructor}`, // id fictício
-          name: c.instructor,
-          specialty: c.specialty || '',
-          instagram: c.instagram || '',
-          whatsapp: c.whatsapp || '',
-          email: c.email || '',
-          fromCourse: true // marcador
-        }));
-
-      // Unificar professores (evitar duplicados)
-      const allTeachers = [...(teachersData || []), ...courseTeachers];
-      const uniqueTeachers = allTeachers.filter((teacher, idx, arr) =>
-        arr.findIndex(t => t.name === teacher.name) === idx
+      // Para cada professor, contar quantos cursos ele possui
+      const teachersWithCourseCount = await Promise.all(
+        (data || []).map(async (teacher) => {
+          const { count, error: countError } = await supabase
+            .from('admin_courses')
+            .select('*', { count: 'exact', head: true })
+            .eq('instructor', teacher.name);
+          if (countError) {
+            console.error('Erro ao contar cursos do professor', teacher.name, countError);
+            return { ...teacher, courseCount: 0 };
+          }
+          return { ...teacher, courseCount: count || 0 };
+        })
       );
 
-      console.log('Professores carregados:', uniqueTeachers);
-      setTeachersList(uniqueTeachers);
+      setTeachersList(teachersWithCourseCount);
     } catch (err) {
-      console.error('Erro inesperado ao carregar professores:', err);
-      setTeachersError('Erro inesperado ao carregar professores.');
+      console.error('Erro ao carregar professores:', err);
+      setTeachersError('Erro ao carregar professores.');
       setTeachersList([]);
     } finally {
       setIsLoadingTeachers(false);
@@ -161,6 +138,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
     loadTeachers();
   }, [loadTeachers]);
 
+  // ==================== FUNÇÃO loadStudents ====================
   const loadStudents = useCallback(async () => {
     if (!isAuthenticated) {
       setStudentsList([]);
@@ -186,6 +164,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
     loadStudents();
   }, [loadStudents]);
 
+  // ==================== loadAdminRequests ====================
   const loadAdminRequests = useCallback(async () => {
     if (!isAuthenticated) {
       setAdminRequests([]);
@@ -259,7 +238,32 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
     loadCourses();
   }, [loadCourses]);
   
-  const [blogList, setBlogList] = useState(BLOG_POSTS);
+  const [blogList, setBlogList] = useState<any[]>([]);
+  const [isLoadingBlog, setIsLoadingBlog] = useState(false);
+  const [blogError, setBlogError] = useState<string | null>(null);
+    // ==================== FUNÇÃO loadBlogPosts ====================
+    const loadBlogPosts = useCallback(async () => {
+      if (!isAuthenticated) return;
+      setIsLoadingBlog(true);
+      try {
+        const { data, error } = await supabase
+          .from('admin_blog_posts')
+          .select('*')
+          .order('created_at', { ascending: false });
+        if (error) throw error;
+        setBlogList(data || []);
+      } catch (err) {
+        console.error(err);
+        setBlogError('Erro ao carregar posts');
+      } finally {
+        setIsLoadingBlog(false);
+      }
+    }, [isAuthenticated]);
+    useEffect(() => {
+      if (activeTab === 'blog') {
+        loadBlogPosts();
+      }
+    }, [activeTab, loadBlogPosts]);
   const [certHistory, setCertHistory] = useState<CertificateLog[]>(MOCK_CERT_HISTORY);
     // Carregar histórico de certificações do banco
     const loadCertHistory = async () => {
@@ -324,46 +328,48 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
     course: '',
     unit: ''
   });
+  // ========== TEACHER DATA AGORA INCLUI BIO ==========
   const [teacherData, setTeacherData] = useState({ 
     name: '', 
     specialty: '', 
     instagram: '',
     whatsapp: '',
-    email: ''
+    email: '',
+    bio: ''
   });
-  const [blogData, setBlogData] = useState({ title: '', author: '', category: 'Dicas', content: '', tags: '' });
+  const [blogData, setBlogData] = useState({ 
+    title: '', 
+    author: '',        // <-- adicionado
+    category: 'Dicas', 
+    content: '', 
+    tags: '' 
+  });
   
-  // ========== ESTADO ADICIONADO ==========
+  // ========== ESTADO PARA UPLOAD DE AVATAR ==========
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
 
-  // Upload de imagem para o Storage do Supabase (CORRIGIDO)
+  // Upload de imagem para o Storage do Supabase (cursos)
   const handleCourseImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Preview local
     const localUrl = URL.createObjectURL(file);
     setCourseData(prev => ({ ...prev, image_url: localUrl }));
 
-    // Sanitiza o nome: apenas timestamp e extensão
     const extension = file.name.split('.').pop();
     const fileName = `course-${Date.now()}.${extension}`;
 
     try {
-      // Upload para o Storage
       const { error: uploadError } = await supabase.storage
         .from('course-images')
         .upload(fileName, file);
-
       if (uploadError) throw uploadError;
 
-      // Obtém URL pública
       const { data: publicUrlData } = supabase.storage
         .from('course-images')
         .getPublicUrl(fileName);
 
       if (publicUrlData) {
-        console.log('URL pública gerada:', publicUrlData.publicUrl);
         setCourseData(prev => ({ ...prev, image_url: publicUrlData.publicUrl }));
       } else {
         throw new Error('Não foi possível obter a URL pública');
@@ -375,8 +381,47 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
         type: 'error',
         message: 'Erro ao fazer upload da imagem. O curso será salvo sem imagem.'
       });
-      // Remove a URL local para não salvar blob no banco
       setCourseData(prev => ({ ...prev, image_url: '' }));
+    }
+  };
+
+  // ========== FUNÇÃO PARA UPLOAD DE AVATAR DO PROFESSOR ==========
+  const handleTeacherAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const localUrl = URL.createObjectURL(file);
+    setUploadedImage(localUrl);
+    // Salva temporariamente no teacherData.avatar (será enviado ao salvar)
+    setTeacherData(prev => ({ ...prev, avatar: localUrl }));
+
+    const extension = file.name.split('.').pop();
+    const fileName = `teacher-${Date.now()}.${extension}`;
+
+    try {
+      // Certifique-se de que o bucket 'teacher-avatars' existe e tem políticas públicas
+      const { error: uploadError } = await supabase.storage
+        .from('teacher-avatars')
+        .upload(fileName, file);
+      if (uploadError) throw uploadError;
+
+      const { data: publicUrlData } = supabase.storage
+        .from('teacher-avatars')
+        .getPublicUrl(fileName);
+
+      if (publicUrlData) {
+        setTeacherData(prev => ({ ...prev, avatar: publicUrlData.publicUrl }));
+      } else {
+        throw new Error('Não foi possível obter a URL pública');
+      }
+    } catch (error) {
+      console.error('Erro ao fazer upload do avatar:', error);
+      setModal({
+        isOpen: true,
+        type: 'error',
+        message: 'Erro ao fazer upload da imagem. O professor será salvo sem avatar.'
+      });
+      setTeacherData(prev => ({ ...prev, avatar: '' }));
     }
   };
 
@@ -399,7 +444,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
 
       setAdminRequests(prev => prev.filter(req => req.id !== requestId));
       setModal({ isOpen: true, type: 'success', message: 'Solicitação marcada como removida com sucesso!' });
-      // Recarregar solicitações para garantir atualização
       await loadAdminRequests();
     } catch (error) {
       console.error('Erro ao remover solicitação', error);
@@ -433,7 +477,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
     return (
       <div className="space-y-4">
         {coursesList.map((course) => {
-          // Calcula quantos alunos estão matriculados neste curso e na mesma unidade
           const enrolled = studentsList.filter(
             (aluno) =>
               aluno.course === course.title &&
@@ -452,7 +495,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
               key={course.id}
               className="group bg-white rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-all duration-200 overflow-hidden"
             >
-              {/* Cabeçalho do card com título e ações */}
               <div className="p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-gray-50 bg-gray-50/30">
                 <div className="flex-1 min-w-0">
                   <h3 className="font-bold text-lg text-gray-800 truncate" title={course.title}>
@@ -494,8 +536,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
                   </button>
                 </div>
               </div>
-
-              {/* Corpo do card: informações de ocupação */}
               <div className="p-5">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-3">
                   <div className="flex items-center gap-4">
@@ -519,16 +559,12 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
                     </div>
                   </div>
                 </div>
-
-                {/* Barra de progresso */}
                 <div className="w-full bg-gray-100 rounded-full h-3 overflow-hidden">
                   <div
                     className={`h-3 rounded-full ${occupancyColor} transition-all duration-500`}
                     style={{ width: percent + '%', minWidth: percent > 0 ? '8px' : 0 }}
                   />
                 </div>
-
-                {/* Mini estatísticas extras (opcional) */}
                 <div className="mt-4 flex flex-wrap gap-3 text-xs text-gray-500">
                   <span className="inline-flex items-center gap-1">
                     <Calendar size={12} /> {course.date ? new Date(course.date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' }) : 'Data não definida'}
@@ -688,7 +724,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
       return;
     }
     setIsSendingCerts(true);
-    // Enviar para cada aluno
     Promise.all(selectedStudentsForCert.map(async (studentId) => {
       const aluno = studentsList.find(s => s.id === studentId);
       console.log('Dados do aluno para certificado:', aluno);
@@ -808,7 +843,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
       setAdminRequests(prev => prev.map(req =>
         req.id === requestId ? { ...req, resolvedAt, status: 'resolvido' } : req
       ));
-      // Recarregar solicitações para garantir atualização
       await loadAdminRequests();
     } catch (error) {
       console.error('Erro ao marcar solicitacao como resolvida', error);
@@ -895,7 +929,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
             courses: teacherCourses.length,
             students: students,
             revenue: revenue,
-            image: teacher.image
+            image: teacher.avatar || DEFAULT_TEACHER_IMAGE
         };
     }).sort((a, b) => b.students - a.students);
 
@@ -967,14 +1001,14 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
     setUploadedImage(null);
     setCourseData({ title: '', instructor: '', instagram: '', date: '', price: '', category: 'Confeitaria', description: '', capacity: '30', unit: '', image_url: '' });
     setStudentData({ name: '', email: '', cpf: '', whatsapp: '', status: 'Ativo', course: '', unit: '' });
-    setTeacherData({ name: '', specialty: '', instagram: '', whatsapp: '', email: '' });
+    setTeacherData({ name: '', specialty: '', instagram: '', whatsapp: '', email: '', bio: '' });
     setBlogData({ title: '', author: '', category: 'Dicas', content: '', tags: '' });
     setViewMode('form');
   };
 
   const handleEdit = (item: any, type: 'course' | 'student' | 'teacher' | 'blog') => {
     setEditingId(item.id);
-    setUploadedImage(item.image || item.avatar || null);
+    setUploadedImage(item.avatar || item.image || null);
     if (type === 'course') {
       const c = item as AdminCourse;
       setCourseData({
@@ -1005,10 +1039,18 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
         specialty: item.specialty || '',
         instagram: item.instagram || '',
         whatsapp: item.whatsapp || '',
-        email: item.email || ''
+        email: item.email || '',
+        bio: item.bio || ''
       });
     } else if (type === 'blog') {
-      setBlogData({ title: item.title, author: item.author, category: item.category, content: item.content || item.excerpt, tags: 'Dicas, Geral' });
+      setBlogData({
+        title: item.title,
+        author: item.author,
+        category: item.category,
+        content: item.content || '',
+        tags: item.tags ? item.tags.join(', ') : '',
+      });
+      setUploadedImage(item.image_url || null);
     }
     setViewMode('form');
   };
@@ -1043,20 +1085,24 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
         const { error } = await supabase.from('admin_courses').delete().eq('id', id);
         if (error) throw error;
         setCoursesList(prev => prev.filter(c => c.id !== id));
-        window.dispatchEvent(new CustomEvent('courses-updated')); // <-- ADICIONADO
+        window.dispatchEvent(new CustomEvent('courses-updated'));
       } else if (type === 'student') {
         const studentId = typeof id === 'string' ? id : String(id);
         await deleteStudent(studentId);
         await loadStudents();
         setSelectedStudentsForCert(prev => prev.filter(existingId => existingId !== studentId));
       } else if (type === 'teacher') {
-        if (typeof id === 'string' && !id.startsWith('course-')) {
-          const { error } = await supabase.from('admin_teachers').delete().eq('id', id);
-          if (error) throw error;
-        }
+        const { error } = await supabase.from('admin_teachers').delete().eq('id', id);
+        if (error) throw error;
         setTeachersList(prev => prev.filter(t => t.id !== id));
       } else if (type === 'blog') {
-        setBlogList(prev => prev.filter(b => b.id !== id));
+        const blogId = typeof id === 'string' ? id : String(id);
+        const { error } = await supabase
+          .from('admin_blog_posts')
+          .delete()
+          .eq('id', blogId);
+        if (error) throw error;
+        await loadBlogPosts(); // recarrega a lista
       }
 
       showSuccess("Item excluído com sucesso!");
@@ -1074,7 +1120,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // ========== BASE PAYLOAD ADICIONADO ==========
     const basePayload = {
       section: activeTab,
       mode: editingId ? 'update' : 'create',
@@ -1085,13 +1130,11 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
     let shouldShowSuccess = false;
 
     if (activeTab === 'courses') {
-      // Validações básicas
       if (!courseData.title || !courseData.instructor || !courseData.price) {
         setModal({ isOpen: true, type: 'warning', message: 'Preencha os campos obrigatórios: título, instrutor e preço.' });
         return;
       }
 
-      // Formata a data para o formato aceito pelo banco (YYYY-MM-DD)
       let formattedDate = null;
       if (courseData.date && courseData.date.trim() !== '') {
         if (/^\d{4}-\d{2}-\d{2}$/.test(courseData.date)) {
@@ -1118,10 +1161,33 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
         description: courseData.description?.trim() || null,
         capacity: parseInt(courseData.capacity) || null,
         unit: courseData.unit || null,
-        image_url: courseData.image_url || null, // null indica que não tem imagem personalizada
+        image_url: courseData.image_url || null,
       };
 
       try {
+        if (coursePayload.instructor) {
+          const { data: existingTeacher } = await supabase
+            .from('admin_teachers')
+            .select('id')
+            .eq('name', coursePayload.instructor)
+            .maybeSingle();
+
+          if (!existingTeacher) {
+            const { error: insertError } = await supabase
+              .from('admin_teachers')
+              .insert({ 
+                name: coursePayload.instructor, 
+                specialty: courseData.category || null, 
+                instagram: courseData.instagram || null 
+              });
+            if (insertError) {
+              console.error('Erro ao criar professor automaticamente:', insertError);
+            } else {
+              console.log('Professor criado automaticamente:', coursePayload.instructor);
+            }
+          }
+        }
+
         let result;
         if (editingId) {
           result = await supabase
@@ -1145,7 +1211,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
         }
 
         await loadCourses();
-        // Dispara um evento para notificar outros componentes
         window.dispatchEvent(new CustomEvent('courses-updated'));
         setCourseData({ title: '', instructor: '', instagram: '', date: '', price: '', category: 'Confeitaria', description: '', capacity: '30', unit: '', image_url: '' });
         setEditingId(null);
@@ -1223,10 +1288,12 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
         instagram: teacherData.instagram.trim() || null,
         whatsapp: teacherData.whatsapp.trim() || null,
         email: teacherData.email.trim() || null,
+        bio: teacherData.bio.trim() || null,
+        avatar: teacherData.avatar || null
       };
 
       try {
-        if (editingId && typeof editingId === 'string' && !editingId.startsWith('course-')) {
+        if (editingId) {
           const { error } = await supabase
             .from('admin_teachers')
             .update(teacherPayload)
@@ -1242,7 +1309,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
         }
 
         await loadTeachers();
-        setTeacherData({ name: '', specialty: '', instagram: '', whatsapp: '', email: '' });
+        setTeacherData({ name: '', specialty: '', instagram: '', whatsapp: '', email: '', bio: '' });
         setEditingId(null);
         shouldShowSuccess = true;
       } catch (error) {
@@ -1251,11 +1318,53 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
         return;
       }
     } else if (activeTab === 'blog') {
-      payload = {
-        ...basePayload,
-        data: blogData,
+      if (!blogData.title || !blogData.author || !blogData.category) {
+        setModal({ isOpen: true, type: 'warning', message: 'Preencha título, autor e categoria.' });
+        return;
+      }
+
+      const tagsArray = blogData.tags
+        ? blogData.tags.split(',').map(t => t.trim()).filter(t => t !== '')
+        : [];
+
+      const blogPayload: any = {
+        title: blogData.title.trim(),
+        author: blogData.author.trim(),
+        category: blogData.category,
+        content: blogData.content?.trim() || null,
+        tags: tagsArray,
+        image_url: uploadedImage || null,
       };
-      shouldShowSuccess = true;
+
+      // Remove undefined/null
+      Object.keys(blogPayload).forEach(key => blogPayload[key] === undefined && delete blogPayload[key]);
+
+      try {
+        let result;
+        if (editingId) {
+          result = await supabase
+            .from('admin_blog_posts')
+            .update(blogPayload)
+            .eq('id', editingId);
+        } else {
+          result = await supabase
+            .from('admin_blog_posts')
+            .insert([blogPayload]);
+        }
+
+        if (result.error) throw result.error;
+
+        await loadBlogPosts();
+        setBlogData({ title: '', author: '', category: 'Dicas', content: '', tags: '' });
+        setUploadedImage(null);
+        setEditingId(null);
+        shouldShowSuccess = true;
+        successMessage = editingId ? 'Post atualizado com sucesso!' : 'Post criado com sucesso!';
+      } catch (error: any) {
+        console.error('Erro ao salvar post:', error);
+        setModal({ isOpen: true, type: 'error', message: `Erro ao salvar: ${error.message}` });
+        return;
+      }
     }
 
     if (shouldShowSuccess) {
@@ -1498,11 +1607,11 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
                              <button
                                key={range}
                                onClick={() => setChartTimeRange(range)}
-                               className={`px-4 py-1.5 rounded-md text-xs font-bold transition-all ${
+                               className={`px-4 py-1.5 rounded-md text-xs font-bold transition-all ${(
                                  chartTimeRange === range 
                                    ? 'bg-white text-gray-800 shadow-sm text-[#9A0000]' 
                                    : 'text-gray-500 hover:text-gray-700'
-                               }`}
+                               )}`}
                              >
                                {range.charAt(0).toUpperCase() + range.slice(1)}
                              </button>
@@ -1857,7 +1966,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
     );
   };
 
-  // --- RENDER TEACHERS TABLE ---
+  // ==================== RENDER TEACHERS CARDS (MELHORADO - ESTILO ALUNO) ====================
+  // ==================== RENDER TEACHERS TABLE (ESTILO LISTA COMO ALUNOS) ====================
   const renderTeachersTable = () => {
     if (isLoadingTeachers) {
       return (
@@ -1888,7 +1998,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
             <User size={32} className="text-gray-400" />
           </div>
           <h3 className="text-xl font-bold text-gray-700 mb-2">Nenhum professor cadastrado</h3>
-          <p className="text-gray-500 mb-6">Comece adicionando um novo professor ou os instrutores dos cursos aparecerão automaticamente.</p>
+          <p className="text-gray-500 mb-6">Comece adicionando um novo professor.</p>
           <button
             onClick={handleAddNew}
             className="inline-flex items-center gap-2 bg-[#9A0000] text-white px-6 py-3 rounded-xl font-bold hover:bg-[#7a0000] transition-all shadow-lg"
@@ -1900,69 +2010,83 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
       );
     }
 
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
     return (
-      <div className="overflow-x-auto">
+      <div className="overflow-x-auto bg-white rounded-2xl border border-gray-100 shadow-sm">
         <table className="w-full text-left border-collapse">
           <thead className="bg-gray-50">
             <tr className="border-b border-gray-100 text-xs font-bold text-gray-500 uppercase tracking-wider">
-              <th className="p-4">Nome</th>
+              <th className="p-4">Professor</th>
               <th className="p-4">Especialidade</th>
-              <th className="p-4">Instagram</th>
-              <th className="p-4">WhatsApp</th>
-              <th className="p-4">E-mail</th>
+              <th className="p-4">Cursos</th>
               <th className="p-4 text-right">Ações</th>
             </tr>
           </thead>
           <tbody className="text-sm text-gray-700">
-            {teachersList.map(teacher => (
-              <tr key={teacher.id} className="border-b border-gray-50 hover:bg-gray-50 transition-colors">
-                <td className="p-4 flex items-center gap-3">
-                  <img src={teacher.image || 'https://via.placeholder.com/40'} alt="" className="w-10 h-10 rounded-full object-cover bg-gray-200" />
-                  <span className="font-bold text-gray-900">{teacher.name}</span>
-                </td>
-                <td className="p-4">{teacher.specialty}</td>
-                <td className="p-4 text-blue-600">{teacher.instagram || '-'}</td>
-                <td className="p-4">
-                  {teacher.whatsapp ? (
-                    <a
-                      href={`https://wa.me/55${teacher.whatsapp.replace(/\D/g, '')}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-green-600 hover:underline"
-                    >
-                      {teacher.whatsapp}
-                    </a>
-                  ) : '-'}
-                </td>
-                <td className="p-4">
-                  {teacher.email ? (
-                    <a href={`mailto:${teacher.email}`} className="text-blue-600 hover:underline">
-                      {teacher.email}
-                    </a>
-                  ) : '-'}
-                </td>
-                <td className="p-4 text-right">
-                  <div className="flex justify-end gap-2">
-                    <button
-                      onClick={() => handleEdit(teacher, 'teacher')}
-                      className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg"
-                      disabled={teacher.id && teacher.id.startsWith && teacher.id.startsWith('course-')}
-                      title={teacher.id?.startsWith?.('course-') ? "Professor vindo de curso, não pode ser editado" : "Editar"}
-                    >
-                      <Edit size={16} />
-                    </button>
-                    <button
-                      onClick={() => handleDelete(teacher.id, 'teacher')}
-                      className="p-2 text-red-600 hover:bg-red-50 rounded-lg"
-                      disabled={teacher.id && teacher.id.startsWith && teacher.id.startsWith('course-')}
-                      title={teacher.id?.startsWith?.('course-') ? "Professor vindo de curso, não pode ser excluído" : "Excluir"}
-                    >
-                      <Trash2 size={16} />
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))}
+            {teachersList.map(teacher => {
+              const isNew = new Date(teacher.created_at) > sevenDaysAgo;
+              return (
+                <tr key={teacher.id} className="border-b border-gray-50 hover:bg-gray-50 transition-colors">
+                  <td className="p-4">
+                    <div className="flex items-center gap-3">
+                      <img 
+                        src={teacher.avatar || DEFAULT_TEACHER_IMAGE} 
+                        alt={teacher.name}
+                        className="w-10 h-10 rounded-full object-cover bg-gray-200 border border-gray-200"
+                        onError={(e) => { e.currentTarget.src = DEFAULT_TEACHER_IMAGE; }}
+                      />
+                      <div>
+                        <span className="font-bold text-gray-900">{teacher.name}</span>
+                        {isNew && (
+                          <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-600">
+                            NOVO
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </td>
+                  <td className="p-4">
+                    <span className="text-gray-600">{teacher.specialty || '-'}</span>
+                  </td>
+                  <td className="p-4">
+                    <span className="bg-gray-100 text-gray-700 px-2 py-1 rounded-full text-xs font-bold">
+                      {teacher.courseCount || 0} {teacher.courseCount === 1 ? 'curso' : 'cursos'}
+                    </span>
+                  </td>
+                  <td className="p-4 text-right">
+                    <div className="flex justify-end gap-2">
+                      {teacher.whatsapp && (
+                        <a
+                          href={`https://wa.me/55${teacher.whatsapp.replace(/\D/g, '')}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+                          title="Enviar mensagem"
+                        >
+                          <MessageCircle size={18} />
+                        </a>
+                      )}
+                      <button
+                        onClick={() => handleEdit(teacher, 'teacher')}
+                        className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                        title="Editar professor"
+                      >
+                        <Edit size={18} />
+                      </button>
+                      <button
+                        onClick={() => handleDelete(teacher.id, 'teacher')}
+                        className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                        title="Excluir professor"
+                      >
+                        <Trash2 size={18} />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
@@ -1970,40 +2094,118 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
   };
 
   // --- RENDER BLOG TABLE ---
-  const renderBlogTable = () => (
-    <div className="overflow-x-auto">
-      <table className="w-full text-left border-collapse">
-        <thead>
-          <tr className="border-b border-gray-100 text-xs font-bold text-gray-500 uppercase tracking-wider">
-            <th className="p-4">Artigo</th>
-            <th className="p-4">Autor</th>
-            <th className="p-4">Categoria</th>
-            <th className="p-4">Data</th>
-            <th className="p-4 text-right">Ações</th>
-          </tr>
-        </thead>
-        <tbody className="text-sm text-gray-700">
-          {blogList.map(post => (
-            <tr key={post.id} className="border-b border-gray-50 hover:bg-gray-50 transition-colors">
-              <td className="p-4 flex items-center gap-3">
-                <img src={post.image} alt="" className="w-10 h-10 rounded-lg object-cover bg-gray-200" />
-                <span className="font-bold text-gray-900 line-clamp-1 max-w-[200px]">{post.title}</span>
-              </td>
-              <td className="p-4">{post.author}</td>
-              <td className="p-4"><span className="bg-gray-100 px-2 py-1 rounded text-xs font-bold text-gray-600">{post.category}</span></td>
-              <td className="p-4">{post.date}</td>
-              <td className="p-4 text-right">
-                <div className="flex justify-end gap-2">
-                  <button onClick={() => handleEdit(post, 'blog')} className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg"><Edit size={16} /></button>
-                  <button onClick={() => handleDelete(post.id, 'blog')} className="p-2 text-red-600 hover:bg-red-50 rounded-lg"><Trash2 size={16} /></button>
-                </div>
-              </td>
+  const renderBlogTable = () => {
+    if (isLoadingBlog) {
+      return (
+        <div className="flex items-center justify-center py-12">
+          <Loader2 size={32} className="animate-spin text-[#9A0000]" />
+        </div>
+      );
+    }
+
+    if (blogError) {
+      return (
+        <div className="text-center py-12 text-red-600">
+          <p>{blogError}</p>
+          <button
+            onClick={loadBlogPosts}
+            className="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-[#9A0000] text-white font-bold hover:bg-[#7a0000] transition-colors"
+          >
+            <RefreshCw size={16} /> Tentar novamente
+          </button>
+        </div>
+      );
+    }
+
+    if (blogList.length === 0) {
+      return (
+        <div className="text-center py-16 bg-white rounded-2xl border border-dashed border-gray-200">
+          <div className="inline-flex items-center justify-center w-20 h-20 bg-gray-100 rounded-full mb-4">
+            <FileText size={32} className="text-gray-400" />
+          </div>
+          <h3 className="text-xl font-bold text-gray-700 mb-2">Nenhum post publicado</h3>
+          <p className="text-gray-500 mb-6">Crie o primeiro post do blog.</p>
+          <button
+            onClick={handleAddNew}
+            className="inline-flex items-center gap-2 bg-[#9A0000] text-white px-6 py-3 rounded-xl font-bold hover:bg-[#7a0000] transition-all shadow-lg"
+          >
+            <Plus size={20} />
+            Nova Publicação
+          </button>
+        </div>
+      );
+    }
+
+    return (
+      <div className="overflow-x-auto">
+        <table className="w-full text-left border-collapse">
+          <thead className="bg-gray-50">
+            <tr className="border-b border-gray-100 text-xs font-bold text-gray-500 uppercase tracking-wider">
+              <th className="p-4">Artigo</th>
+              <th className="p-4">Autor</th>
+              <th className="p-4">Categoria</th>
+              <th className="p-4">Data</th>
+              <th className="p-4 text-right">Ações</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
+          </thead>
+          <tbody className="text-sm text-gray-700">
+            {blogList.map((post) => {
+              const postDate = post.created_at
+                ? new Date(post.created_at).toLocaleDateString('pt-BR', {
+                    day: '2-digit',
+                    month: 'short',
+                    year: 'numeric',
+                  })
+                : 'Data não definida';
+
+              return (
+                <tr key={post.id} className="border-b border-gray-50 hover:bg-gray-50 transition-colors">
+                  <td className="p-4">
+                    <div className="flex items-center gap-3">
+                      <img
+                        src={post.image_url || DEFAULT_BLOG_IMAGE}
+                        alt={post.title}
+                        className="w-10 h-10 rounded-lg object-cover bg-gray-200 border border-gray-200"
+                        onError={(e) => {
+                          e.currentTarget.src = DEFAULT_BLOG_IMAGE;
+                        }}
+                      />
+                      <span className="font-bold text-gray-900 line-clamp-1 max-w-[250px]">{post.title}</span>
+                    </div>
+                  </td>
+                  <td className="p-4">{post.author}</td>
+                  <td className="p-4">
+                    <span className="bg-gray-100 text-gray-700 px-2 py-1 rounded-full text-xs font-bold">
+                      {post.category}
+                    </span>
+                  </td>
+                  <td className="p-4 text-gray-500">{postDate}</td>
+                  <td className="p-4 text-right">
+                    <div className="flex justify-end gap-2">
+                      <button
+                        onClick={() => handleEdit(post, 'blog')}
+                        className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                        title="Editar post"
+                      >
+                        <Edit size={16} />
+                      </button>
+                      <button
+                        onClick={() => handleDelete(post.id, 'blog')}
+                        className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                        title="Excluir post"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    );
+  };
 
   // --- DASHBOARD LAYOUT ---
   return (
@@ -2140,7 +2342,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
                   {activeTab === 'metrics' && renderMetricsDashboard()}
                   {activeTab === 'courses' && renderCoursesTable()}
                   {activeTab === 'students' && renderStudentsTable()}
-                  {activeTab === 'teachers' && renderTeachersTable()}
+                  {activeTab === 'teachers' && renderTeachersTable()} {/* <-- ALTERADO */}
                   {activeTab === 'blog' && renderBlogTable()}
                   {activeTab === 'requests' && (
                     <div className="animate-in fade-in duration-300">
@@ -2427,11 +2629,11 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
                                 <button 
                                   onClick={handleBulkSendCert}
                                   disabled={selectedStudentsForCert.length === 0 || !certificateFile || isSendingCerts}
-                                  className={`flex items-center gap-2 px-8 py-4 rounded-xl font-bold shadow-lg transition-all w-full md:w-auto justify-center ${
+                                  className={`flex items-center gap-2 px-8 py-4 rounded-xl font-bold shadow-lg transition-all w-full md:w-auto justify-center ${(
                                     selectedStudentsForCert.length > 0 && certificateFile && !isSendingCerts
                                       ? 'bg-[#9A0000] text-white hover:bg-[#7a0000] hover:-translate-y-1' 
                                       : 'bg-gray-200 text-gray-400 cursor-not-allowed shadow-none'
-                                  }`}
+                                  )}`}
                                 >
                                   {isSendingCerts ? (
                                     <>
@@ -2702,7 +2904,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
                             <select 
                               value={studentData.course} 
                               onChange={e => {
-                                setStudentData({...studentData, course: e.target.value, unit: ''}); // limpa unidade ao mudar curso
+                                setStudentData({...studentData, course: e.target.value, unit: ''});
                               }} 
                               className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-[#9A0000] outline-none bg-white text-gray-900 appearance-none"
                             >
@@ -2726,7 +2928,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
                           </div>
                         </div>
 
-                        {/* Unidade do curso (aparece apenas se houver unidades disponíveis para o curso selecionado) */}
+                        {/* Unidade do curso */}
                         {studentData.course && (
                           <div>
                             <label className="text-xs font-bold text-gray-500 uppercase ml-1">Unidade</label>
@@ -2758,42 +2960,63 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
                       </>
                     )}
 
-                    {/* TEACHER FORM */}
+                    {/* TEACHER FORM (AGORA COM BIO E UPLOAD DE AVATAR) */}
                     {activeTab === 'teachers' && (
                       <>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                           <div>
-                            <label className="text-xs font-bold text-gray-500 uppercase ml-1">Nome</label>
-                            <input required type="text" value={teacherData.name} onChange={e => setTeacherData({...teacherData, name: e.target.value})} className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-[#9A0000] outline-none bg-white text-gray-900 placeholder:text-gray-400" />
+                            <label className="text-xs font-bold text-gray-500 uppercase ml-1">Nome *</label>
+                            <input required type="text" value={teacherData.name} onChange={e => setTeacherData({...teacherData, name: e.target.value})} className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-[#9A0000] outline-none bg-white text-gray-900" />
                           </div>
                           <div>
-                            <label className="text-xs font-bold text-gray-500 uppercase ml-1">Especialidade</label>
-                            <input required type="text" value={teacherData.specialty} onChange={e => setTeacherData({...teacherData, specialty: e.target.value})} className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-[#9A0000] outline-none bg-white text-gray-900 placeholder:text-gray-400" />
+                            <label className="text-xs font-bold text-gray-500 uppercase ml-1">Especialidade *</label>
+                            <input required type="text" value={teacherData.specialty} onChange={e => setTeacherData({...teacherData, specialty: e.target.value})} className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-[#9A0000] outline-none bg-white text-gray-900" />
                           </div>
                         </div>
+
+                        <div>
+                          <label className="text-xs font-bold text-gray-500 uppercase ml-1">Bio</label>
+                          <textarea 
+                            rows={3} 
+                            value={teacherData.bio} 
+                            onChange={e => setTeacherData({...teacherData, bio: e.target.value})} 
+                            className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-[#9A0000] outline-none resize-none bg-white text-gray-900"
+                            placeholder="Pequena descrição do professor..."
+                          />
+                        </div>
+
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                           <div>
                             <label className="text-xs font-bold text-gray-500 uppercase ml-1">Instagram (@)</label>
-                            <input type="text" value={teacherData.instagram} onChange={e => setTeacherData({...teacherData, instagram: e.target.value})} className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-[#9A0000] outline-none bg-white text-gray-900 placeholder:text-gray-400" />
+                            <input type="text" value={teacherData.instagram} onChange={e => setTeacherData({...teacherData, instagram: e.target.value})} className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-[#9A0000] outline-none bg-white text-gray-900" />
                           </div>
-                          <div>
-                             <label className="text-xs font-bold text-gray-500 uppercase ml-1">Foto do Professor</label>
-                             <div className="relative">
-                               <input type="file" onChange={handleImageUpload} className="absolute inset-0 opacity-0 cursor-pointer" />
-                               <div className="w-full px-4 py-3 rounded-xl border border-dashed border-gray-300 text-gray-500 text-center text-sm hover:border-[#9A0000] bg-white">
-                                 {uploadedImage ? "Foto Selecionada" : "Escolher Foto"}
-                               </div>
-                             </div>
-                          </div>
-                        </div>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                           <div>
                             <label className="text-xs font-bold text-gray-500 uppercase ml-1">WhatsApp</label>
-                            <input type="text" value={teacherData.whatsapp} onChange={e => setTeacherData({...teacherData, whatsapp: e.target.value})} className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-[#9A0000] outline-none bg-white text-gray-900 placeholder:text-gray-400" />
+                            <input type="text" value={teacherData.whatsapp} onChange={e => setTeacherData({...teacherData, whatsapp: e.target.value})} className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-[#9A0000] outline-none bg-white text-gray-900" />
                           </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                           <div>
                             <label className="text-xs font-bold text-gray-500 uppercase ml-1">E-mail</label>
-                            <input type="email" value={teacherData.email} onChange={e => setTeacherData({...teacherData, email: e.target.value})} className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-[#9A0000] outline-none bg-white text-gray-900 placeholder:text-gray-400" />
+                            <input type="email" value={teacherData.email} onChange={e => setTeacherData({...teacherData, email: e.target.value})} className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-[#9A0000] outline-none bg-white text-gray-900" />
+                          </div>
+                          <div>
+                            <label className="text-xs font-bold text-gray-500 uppercase ml-1">Foto do Professor</label>
+                            <div className="relative">
+                              <input 
+                                type="file" 
+                                accept="image/*"
+                                onChange={handleTeacherAvatarUpload} 
+                                className="absolute inset-0 opacity-0 cursor-pointer z-10" 
+                              />
+                              <div className="w-full px-4 py-3 rounded-xl border border-dashed border-gray-300 text-gray-500 text-center text-sm hover:border-[#9A0000] bg-white">
+                                {teacherData.avatar ? "Foto Selecionada" : "Escolher Foto"}
+                              </div>
+                            </div>
+                            {teacherData.avatar && (
+                              <img src={teacherData.avatar} alt="Preview" className="mt-2 h-16 w-16 rounded-full object-cover border border-gray-200" />
+                            )}
                           </div>
                         </div>
                       </>
@@ -2813,6 +3036,15 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
 
                           <label className="text-xs font-bold text-gray-500 uppercase ml-1">Título</label>
                           <input type="text" value={blogData.title} onChange={e => setBlogData({...blogData, title: e.target.value})} placeholder="Título do Artigo" className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-[#9A0000] outline-none text-lg font-bold bg-white text-gray-900 placeholder:text-gray-400" />
+
+                          <label className="text-xs font-bold text-gray-500 uppercase ml-1">Autor *</label>
+                          <input
+                            type="text"
+                            value={blogData.author}
+                            onChange={e => setBlogData({ ...blogData, author: e.target.value })}
+                            placeholder="Nome do autor"
+                            className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-[#9A0000] outline-none bg-white text-gray-900"
+                          />
                           
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                              <div>
@@ -2878,7 +3110,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
               </div>
 
               {isNameCorrection ? (
-                // CASE 1: CORRECTION (SHOW INPUT)
                 <div>
                   <label className="text-xs font-bold text-gray-500 uppercase ml-1 flex items-center gap-2">
                     Corrigir Nome para: <PenTool size={12} />
@@ -2896,7 +3127,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
                   </p>
                 </div>
               ) : (
-                // CASE 2: RESEND (SHOW CONFIRMATION TEXT)
                 <div className="bg-blue-50 p-4 rounded-xl border border-blue-100 text-sm text-blue-800">
                   <p className="mb-2">
                     O aluno solicitou uma segunda via do arquivo original.
