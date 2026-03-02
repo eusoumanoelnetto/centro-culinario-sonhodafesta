@@ -1,6 +1,32 @@
 import React, { useState, useEffect } from 'react';
-import { ArrowLeft, Calendar, User, Facebook, Twitter, Linkedin, Link2, ChevronUp, Mail } from 'lucide-react';
+import { ArrowLeft, Calendar, User, Facebook, Linkedin, Link2, ChevronUp, Mail, Instagram } from 'lucide-react';
 import { DEFAULT_BLOG_IMAGE } from '../constants';
+
+// Ícone customizado para X (novo Twitter) - Logo oficial estilizado
+const XIcon = ({ size = 24 }: { size?: number }) => (
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="currentColor"
+    xmlns="http://www.w3.org/2000/svg"
+  >
+    <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24h-6.657l-5.214-6.817L2.306 21.75H-0.424v-3.308l7.227-8.26L-0.424 2.25h6.657l5.214 6.817L21.578 2.25h3.308v3.308h-6.698zM17.3 19.928h1.828L6.633 4.156H4.702l12.598 15.772z" />
+  </svg>
+);
+
+// Ícone customizado para WhatsApp com estilo melhorado
+const WhatsAppIcon = ({ size = 24 }: { size?: number }) => (
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="currentColor"
+    xmlns="http://www.w3.org/2000/svg"
+  >
+    <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.272-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.67-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.076 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421-7.403h-.004a6.963 6.963 0 00-6.993 6.99c0 1.539.402 3.04 1.165 4.357l-1.241 4.534 4.644-1.218c1.28.693 2.73 1.059 4.237 1.059h.004a6.975 6.975 0 006.982-6.99c0-1.862-.716-3.615-2.017-4.92a6.954 6.954 0 00-4.933-2.042M19.313 2.04H4.687C3.233 2.04 2.04 3.233 2.04 4.687v14.626c0 1.454 1.193 2.647 2.647 2.647h14.626c1.454 0 2.647-1.193 2.647-2.647V4.687c0-1.454-1.193-2.646-2.647-2.646" />
+  </svg>
+);
 
 interface BlogPost {
   id: string;
@@ -70,12 +96,20 @@ const PostDetails: React.FC<PostDetailsProps> = ({ post, onBack }) => {
       case 'facebook':
         shareUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`;
         break;
-      case 'twitter':
+      case 'x':
         shareUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`;
         break;
       case 'linkedin':
         shareUrl = `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(url)}`;
         break;
+      case 'whatsapp':
+        shareUrl = `https://wa.me/?text=${encodeURIComponent(text + ' ' + url)}`;
+        break;
+      case 'instagram':
+        // Instagram não tem deep link de compartilhamento direto, então copiamos o link
+        navigator.clipboard.writeText(url);
+        alert('Link copiado! Cole no Instagram Stories ou Direct Message.');
+        return;
       case 'copy':
         navigator.clipboard.writeText(url);
         alert('Link copiado!');
@@ -116,8 +150,10 @@ const PostDetails: React.FC<PostDetailsProps> = ({ post, onBack }) => {
               <div className="flex gap-2">
                 {[
                   { icon: Facebook, platform: 'facebook', color: 'hover:text-blue-600', bg: 'hover:bg-blue-50' },
-                  { icon: Twitter, platform: 'twitter', color: 'hover:text-sky-500', bg: 'hover:bg-sky-50' },
+                  { icon: XIcon, platform: 'x', isCustom: true, color: 'hover:text-gray-900', bg: 'hover:bg-gray-100' },
                   { icon: Linkedin, platform: 'linkedin', color: 'hover:text-blue-700', bg: 'hover:bg-blue-50' },
+                  { icon: Instagram, platform: 'instagram', color: 'hover:text-pink-600', bg: 'hover:bg-pink-50' },
+                  { icon: WhatsAppIcon, platform: 'whatsapp', isCustom: true, color: 'hover:text-green-600', bg: 'hover:bg-green-50' },
                   { icon: Link2, platform: 'copy', color: 'hover:text-gray-900', bg: 'hover:bg-gray-100' },
                 ].map(({ icon: Icon, platform, color, bg }) => (
                   <button
@@ -231,8 +267,10 @@ const PostDetails: React.FC<PostDetailsProps> = ({ post, onBack }) => {
                         <div className="flex gap-2">
                           {[
                             { icon: Facebook, platform: 'facebook', color: 'hover:text-blue-600' },
-                            { icon: Twitter, platform: 'twitter', color: 'hover:text-sky-500' },
+                            { icon: XIcon, platform: 'x', isCustom: true, color: 'hover:text-gray-900' },
                             { icon: Linkedin, platform: 'linkedin', color: 'hover:text-blue-700' },
+                            { icon: Instagram, platform: 'instagram', color: 'hover:text-pink-600' },
+                            { icon: WhatsAppIcon, platform: 'whatsapp', isCustom: true, color: 'hover:text-green-600' },
                           ].map(({ icon: Icon, platform, color }) => (
                             <button
                               key={platform}
