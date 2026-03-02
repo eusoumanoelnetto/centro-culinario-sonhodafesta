@@ -32,6 +32,8 @@ interface BlogPost {
   id: string;
   title: string;
   author: string;
+  author_role?: string;
+  author_bio?: string;
   category: string;
   content: string;
   excerpt?: string;
@@ -204,7 +206,13 @@ const PostDetails: React.FC<PostDetailsProps> = ({ post, onBack }) => {
                       </div>
                       <div className="flex flex-col">
                         <span className="text-xs text-gray-500 font-semibold">POR</span>
-                        <span className="font-semibold text-gray-800">{post.author}</span>
+                        <div className="flex items-center gap-2">
+                          <span className="font-semibold text-gray-800">{post.author}</span>
+                          {/* NOVO: Ocupação do autor */}
+                          {post.author_role && (
+                            <span className="text-xs text-gray-500 italic">· {post.author_role}</span>
+                          )}
+                        </div>
                       </div>
                     </div>
 
@@ -241,6 +249,17 @@ const PostDetails: React.FC<PostDetailsProps> = ({ post, onBack }) => {
                     <div className="bg-gradient-to-r from-amber-50 to-orange-50 border-l-4 border-[#9A0000] pl-6 py-6 mb-10 rounded-r-xl shadow-sm">
                       <p className="text-lg text-gray-700 italic leading-relaxed font-serif">
                         "{post.excerpt}"
+                      </p>
+                    </div>
+                  )}
+
+                  {/* NOVO: Biografia do autor (se existir) */}
+                  {post.author_bio && (
+                    <div className="bg-gray-50 p-6 rounded-xl border border-gray-100 mb-10 shadow-sm">
+                      <p className="text-sm text-gray-600 italic leading-relaxed flex items-start gap-3">
+                        <span className="text-[#9A0000] text-2xl leading-none flex-shrink-0">"</span>
+                        <span className="flex-1">{post.author_bio}</span>
+                        <span className="text-[#9A0000] text-2xl leading-none flex-shrink-0">"</span>
                       </p>
                     </div>
                   )}

@@ -7,6 +7,8 @@ interface BlogPost {
   id: string;
   title: string;
   author: string;
+  author_role?: string;
+  author_bio?: string;
   category: string;
   content: string;
   excerpt?: string;
@@ -158,6 +160,7 @@ const Blog: React.FC<BlogProps> = ({ onBack, onPostClick }) => {
                     <span className="flex items-center gap-1">
                       <User size={14} />
                       {post.author}
+                      {post.author_role && <span className="text-gray-400 text-xs">({post.author_role})</span>}
                     </span>
                   </div>
 

@@ -62,13 +62,15 @@ export interface Category {
 export interface BlogPost {
   id: string;
   title: string;
-  excerpt: string;
-  content?: string;
-  category: 'Curiosidades' | 'Dicas' | 'Culinária' | 'Confeitaria';
-  image: string;
-  date: string;
   author: string;
-  readTime: string;
+  author_role?: string;
+  author_bio?: string;
+  category: string;
+  content: string;
+  excerpt?: string;
+  image_url?: string;
+  created_at: string;
+  readTime?: string;
 }
 
 export interface Student {

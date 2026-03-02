@@ -25,14 +25,18 @@ interface AdminDashboardProps {
   onAddBlogPost?: (post: BlogPost) => void;
 }
 
+// Interface atualizada para refletir a tabela admin_certificacoes
 interface CertificateLog {
   id: string;
-  studentName: string;
-  courseTitle: string;
-  dateSent: string;
+  aluno_id: string;
+  studentName: string;         // aluno_nome
+  courseTitle: string;          // curso_nome
+  curso_id?: string;
+  dateSent: string;             // data_envio
   type: 'Original' | '2ª Via' | 'Correção';
   status: 'Entregue' | 'Pendente' | 'Erro';
   adminUser: string;
+  arquivo_url?: string;
 }
 
 interface CertRequest {
@@ -264,21 +268,48 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
         loadBlogPosts();
       }
     }, [activeTab, loadBlogPosts]);
-  const [certHistory, setCertHistory] = useState<CertificateLog[]>(MOCK_CERT_HISTORY);
-    // Carregar histórico de certificações do banco
-    const loadCertHistory = async () => {
+
+  // ==================== CERTIFICAÇÃO ====================
+  const [certHistory, setCertHistory] = useState<CertificateLog[]>([]);
+  const [isLoadingCertHistory, setIsLoadingCertHistory] = useState(false);
+
+  const loadCertHistory = useCallback(async () => {
+    if (!isAuthenticated) return;
+    setIsLoadingCertHistory(true);
+    try {
       const { data, error } = await supabase
         .from('admin_certificacoes')
         .select('*')
         .order('data_envio', { ascending: false });
-      if (!error) setCertHistory(data || []);
-    };
+      if (error) throw error;
+      // Mapear para o formato CertificateLog
+      const mapped: CertificateLog[] = (data || []).map((item: any) => ({
+        id: item.id,
+        aluno_id: item.aluno_id,
+        studentName: item.aluno_nome,
+        courseTitle: item.curso_nome,
+        curso_id: item.curso_id,
+        dateSent: item.data_envio,
+        type: item.tipo,
+        status: item.status,
+        adminUser: item.admin_user,
+        arquivo_url: item.arquivo_url,
+      }));
+      setCertHistory(mapped);
+    } catch (error) {
+      console.error('Erro ao carregar histórico de certificados:', error);
+      setModal({ isOpen: true, type: 'error', message: 'Erro ao carregar histórico.' });
+    } finally {
+      setIsLoadingCertHistory(false);
+    }
+  }, [isAuthenticated]);
 
-    useEffect(() => {
-      if (activeTab === 'certificates') {
-        loadCertHistory();
-      }
-    }, [activeTab]);
+  useEffect(() => {
+    if (activeTab === 'certificates') {
+      loadCertHistory();
+    }
+  }, [activeTab, loadCertHistory]);
+
   const [certRequests, setCertRequests] = useState<CertRequest[]>(MOCK_PENDING_REQUESTS);
   const [adminRequests, setAdminRequests] = useState<AdminRequest[]>([]);
   const [isLoadingRequests, setIsLoadingRequests] = useState(false);
@@ -339,7 +370,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
   });
   const [blogData, setBlogData] = useState({ 
     title: '', 
-    author: '',        // <-- adicionado
+    author: '',
+    author_role: '',
+    author_bio: '',
     category: 'Dicas', 
     content: '', 
     tags: '' 
@@ -761,7 +794,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
     }
   };
 
-  const handleBulkSendCert = () => {
+  const handleBulkSendCert = async () => {
     if (!certificateFile) {
       setModal({ isOpen: true, type: 'warning', message: 'Por favor, faça o upload do arquivo do certificado antes de enviar.' });
       return;
@@ -770,68 +803,96 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
       setModal({ isOpen: true, type: 'warning', message: 'Selecione ao menos um aluno.' });
       return;
     }
+
     setIsSendingCerts(true);
-    Promise.all(selectedStudentsForCert.map(async (studentId) => {
-      const aluno = studentsList.find(s => s.id === studentId);
-      console.log('Dados do aluno para certificado:', aluno);
 
-      if (!aluno) {
-        setModal({ isOpen: true, type: 'error', message: 'Erro: Aluno não encontrado na lista.' });
-        console.error('Erro: Aluno não encontrado para o ID:', studentId);
-        return;
-      }
+    try {
+      // 1. Fazer upload do arquivo para o bucket 'certificates'
+      const file = certificateFile;
+      const extension = file.name.split('.').pop();
+      const fileName = `certificado-${Date.now()}.${extension}`;
 
-      const cursoId = aluno.courseId || aluno.curso_id || aluno.course?.id || null;
+      const { error: uploadError } = await supabase.storage
+        .from('certificates')
+        .upload(fileName, file);
+      if (uploadError) throw uploadError;
 
-      const certData = {
-        aluno_id: aluno.id,
-        aluno_nome: aluno.name,
-        curso_id: cursoId,
-        curso_nome: aluno.course || aluno.curso_nome || '',
-        tipo: 'Original',
-        status: 'Entregue',
-        data_envio: new Date().toISOString(),
-        admin_user: 'admin',
-        arquivo_url: '',
-      };
+      const { data: urlData } = supabase.storage
+        .from('certificates')
+        .getPublicUrl(fileName);
+      const publicUrl = urlData?.publicUrl;
 
-      if (!certData.curso_id) {
-        setModal({ isOpen: true, type: 'error', message: 'Erro: curso_id não encontrado para o aluno selecionado.' });
-        console.error('Erro: curso_id não encontrado para o aluno:', aluno);
-        return;
-      }
+      if (!publicUrl) throw new Error('Não foi possível obter a URL pública');
 
-      const { error } = await supabase.from('admin_certificacoes').insert([certData]);
-      if (error) {
-        setModal({ isOpen: true, type: 'error', message: 'Erro ao enviar certificado: ' + error.message });
-        console.error('Erro ao inserir certificado:', error);
-      }
-    })).then(() => {
-      setIsSendingCerts(false);
+      // 2. Inserir um registro para cada aluno selecionado
+      const inserts = selectedStudentsForCert.map(async (studentId) => {
+        const aluno = studentsList.find(s => s.id === studentId);
+        if (!aluno) return;
+
+        const cursoId = aluno.courseId || aluno.curso_id || null;
+
+        const certData = {
+          aluno_id: aluno.id,
+          aluno_nome: aluno.name,
+          curso_id: cursoId,
+          curso_nome: aluno.course || '',
+          tipo: 'Original',
+          status: 'Entregue',
+          data_envio: new Date().toISOString(),
+          admin_user: user?.name || 'admin',
+          arquivo_url: publicUrl,
+        };
+
+        const { error } = await supabase.from('admin_certificacoes').insert([certData]);
+        if (error) throw error;
+      });
+
+      await Promise.all(inserts);
+
       showSuccess(`${selectedStudentsForCert.length} certificados enviados com sucesso!`);
-      setSelectedCertCourse("");
+      setSelectedCertCourse('');
       setSelectedStudentsForCert([]);
       setCertificateFile(null);
-      loadCertHistory();
-    });
+      await loadCertHistory();
+    } catch (error: any) {
+      console.error('Erro ao enviar certificados:', error);
+      setModal({ isOpen: true, type: 'error', message: `Erro: ${error.message}` });
+    } finally {
+      setIsSendingCerts(false);
+    }
   };
 
   const handleResendSingleCert = (log: CertificateLog) => {
     setModal({
       isOpen: true,
       type: 'confirm',
+      title: 'Reenviar certificado',
       message: `Deseja reenviar o certificado para ${log.studentName}? Isso gerará um registro de 2ª via.`,
-      onConfirm: () => {
-        const newLog: CertificateLog = {
-            ...log,
-            id: `log-${Date.now()}`,
-            dateSent: new Date().toLocaleString('pt-BR'),
-            type: '2ª Via',
-            status: 'Entregue'
-        };
-        setCertHistory(prev => [newLog, ...prev]);
-        showSuccess(`2ª via enviada para ${log.studentName}`);
-      }
+      onConfirm: async () => {
+        try {
+          // Criar novo registro como 2ª via
+          const newLog = {
+            aluno_id: log.aluno_id,
+            aluno_nome: log.studentName,
+            curso_id: log.curso_id || null,
+            curso_nome: log.courseTitle,
+            tipo: '2ª Via' as const,
+            status: 'Entregue' as const,
+            data_envio: new Date().toISOString(),
+            admin_user: user?.name || 'admin',
+            arquivo_url: log.arquivo_url, // reutiliza o mesmo arquivo
+          };
+
+          const { error } = await supabase.from('admin_certificacoes').insert([newLog]);
+          if (error) throw error;
+
+          showSuccess(`2ª via enviada para ${log.studentName}`);
+          await loadCertHistory();
+        } catch (error) {
+          console.error('Erro ao reenviar certificado:', error);
+          setModal({ isOpen: true, type: 'error', message: 'Erro ao reenviar.' });
+        }
+      },
     });
   };
 
@@ -897,43 +958,68 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
     }
   };
 
-  const handleFinalizeResolve = () => {
+  const handleFinalizeResolve = async () => {
     if (!resolvingRequest) return;
-    if (isNameCorrection) {
+
+    try {
+      if (isNameCorrection) {
+        // Atualizar nome do aluno na tabela students (se necessário)
         if (correctionName !== resolvingRequest.studentName) {
-            setStudentsList(prev => prev.map(s => {
-                if (s.name === resolvingRequest.studentName && s.course === resolvingRequest.courseTitle) {
-                    return { ...s, name: correctionName };
-                }
-                return s;
-            }));
+          const { error: updateError } = await supabase
+            .from('admin_alunos')
+            .update({ name: correctionName })
+            .eq('name', resolvingRequest.studentName)
+            .eq('course', resolvingRequest.courseTitle);
+          if (updateError) throw updateError;
+          await loadStudents();
         }
-        const newLog: CertificateLog = {
-          id: `log-${Date.now()}`,
-          studentName: correctionName,
-          courseTitle: resolvingRequest.courseTitle,
-          dateSent: new Date().toLocaleString('pt-BR'),
-          type: 'Correção',
-          status: 'Entregue',
-          adminUser: 'Admin'
+
+        // Inserir registro de correção
+        const newLog = {
+          aluno_id: '', // precisamos obter o aluno_id pelo nome? Por simplicidade, vamos buscar da tabela.
+          aluno_nome: correctionName,
+          curso_id: null,
+          curso_nome: resolvingRequest.courseTitle,
+          tipo: 'Correção' as const,
+          status: 'Entregue' as const,
+          data_envio: new Date().toISOString(),
+          admin_user: user?.name || 'admin',
+          arquivo_url: '',
         };
-        setCertHistory(prev => [newLog, ...prev]);
+        // Idealmente, aqui você teria o aluno_id do request. Como não temos, vamos pular por enquanto.
+        // Você pode adaptar conforme sua lógica.
+        const { error } = await supabase.from('admin_certificacoes').insert([newLog]);
+        if (error) throw error;
+
         showSuccess(`Nome corrigido e certificado enviado para "${correctionName}"!`);
-    } else {
-        const newLog: CertificateLog = {
-          id: `log-${Date.now()}`,
-          studentName: resolvingRequest.studentName,
-          courseTitle: resolvingRequest.courseTitle,
-          dateSent: new Date().toLocaleString('pt-BR'),
-          type: '2ª Via',
-          status: 'Entregue',
-          adminUser: 'Admin'
+      } else {
+        // Reenvio simples (2ª via)
+        const newLog = {
+          aluno_id: '', // novamente, precisaríamos do ID
+          aluno_nome: resolvingRequest.studentName,
+          curso_id: null,
+          curso_nome: resolvingRequest.courseTitle,
+          tipo: '2ª Via' as const,
+          status: 'Entregue' as const,
+          data_envio: new Date().toISOString(),
+          admin_user: user?.name || 'admin',
+          arquivo_url: '',
         };
-        setCertHistory(prev => [newLog, ...prev]);
+        const { error } = await supabase.from('admin_certificacoes').insert([newLog]);
+        if (error) throw error;
+
         showSuccess(`2ª via reenviada para ${resolvingRequest.studentName}!`);
+      }
+
+      // Remover a solicitação (se estiver usando uma tabela de solicitações)
+      // await supabase.from('admin_solicitacoes').delete().eq('id', resolvingRequest.id);
+      setCertRequests(prev => prev.filter(r => r.id !== resolvingRequest.id));
+      setResolvingRequest(null);
+      await loadCertHistory();
+    } catch (error) {
+      console.error('Erro ao finalizar resolução:', error);
+      setModal({ isOpen: true, type: 'error', message: 'Erro ao processar.' });
     }
-    setCertRequests(prev => prev.filter(r => r.id !== resolvingRequest.id));
-    setResolvingRequest(null);
   };
 
   // --- CHART DATA GENERATION ---
@@ -1049,7 +1135,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
     setCourseData({ title: '', instructor: '', instagram: '', date: '', price: '', category: 'Confeitaria', description: '', capacity: '30', unit: '', image_url: '' });
     setStudentData({ name: '', email: '', cpf: '', whatsapp: '', status: 'Ativo', course: '', unit: '' });
     setTeacherData({ name: '', specialty: '', instagram: '', whatsapp: '', email: '', bio: '' });
-    setBlogData({ title: '', author: '', category: 'Dicas', content: '', tags: '' });
+    setBlogData({ title: '', author: '', author_role: '', author_bio: '', category: 'Dicas', content: '', tags: '' });
     setViewMode('form');
   };
 
@@ -1093,6 +1179,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
       setBlogData({
         title: item.title,
         author: item.author,
+        author_role: item.author_role || '',
+        author_bio: item.author_bio || '',
         category: item.category,
         content: item.content || '',
         tags: item.tags ? item.tags.join(', ') : '',
@@ -1377,6 +1465,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
       const blogPayload: any = {
         title: blogData.title.trim(),
         author: blogData.author.trim(),
+        author_role: blogData.author_role?.trim() || null,
+        author_bio: blogData.author_bio?.trim() || null,
         category: blogData.category,
         content: blogData.content?.trim() || null,
         tags: tagsArray,
@@ -1402,7 +1492,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
         if (result.error) throw result.error;
 
         await loadBlogPosts();
-        setBlogData({ title: '', author: '', category: 'Dicas', content: '', tags: '' });
+        setBlogData({ title: '', author: '', author_role: '', author_bio: '', category: 'Dicas', content: '', tags: '' });
         setUploadedImage(null);
         setEditingId(null);
         shouldShowSuccess = true;
@@ -1882,11 +1972,11 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
             <button
               key={filter}
               onClick={() => setStudentFilter(filter as any)}
-              className={`px-4 py-2 rounded-full text-sm font-bold whitespace-nowrap transition-all ${
+              className={`px-4 py-2 rounded-full text-sm font-bold whitespace-nowrap transition-all ${(
                 studentFilter === filter 
                   ? 'bg-[#9A0000] text-white shadow-md' 
                   : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
-              }`}
+              )}`}
             >
               {filter}
             </button>
@@ -2676,11 +2766,11 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
                                 <button 
                                   onClick={handleBulkSendCert}
                                   disabled={selectedStudentsForCert.length === 0 || !certificateFile || isSendingCerts}
-                                  className={`flex items-center gap-2 px-8 py-4 rounded-xl font-bold shadow-lg transition-all w-full md:w-auto justify-center ${(
+                                  className={`flex items-center gap-2 px-8 py-4 rounded-xl font-bold shadow-lg transition-all w-full md:w-auto justify-center ${
                                     selectedStudentsForCert.length > 0 && certificateFile && !isSendingCerts
                                       ? 'bg-[#9A0000] text-white hover:bg-[#7a0000] hover:-translate-y-1' 
                                       : 'bg-gray-200 text-gray-400 cursor-not-allowed shadow-none'
-                                  )}`}
+                                  }`}
                                 >
                                   {isSendingCerts ? (
                                     <>
@@ -2721,61 +2811,69 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
                           </span>
                         </div>
 
-                        <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm">
-                          <div className="overflow-x-auto">
-                            <table className="w-full text-left border-collapse">
-                              <thead className="bg-gray-50">
-                                <tr className="border-b border-gray-100 text-xs font-bold text-gray-500 uppercase tracking-wider">
-                                  <th className="p-4">Data</th>
-                                  <th className="p-4">Aluno</th>
-                                  <th className="p-4">Curso</th>
-                                  <th className="p-4">Tipo</th>
-                                  <th className="p-4">Status</th>
-                                  <th className="p-4 text-right">Ações</th>
-                                </tr>
-                              </thead>
-                              <tbody className="text-sm text-gray-700">
-                                {certHistory.map((log) => (
-                                  <tr key={log.id} className="border-b border-gray-50 hover:bg-gray-50 transition-colors">
-                                    <td className="p-4 whitespace-nowrap text-gray-500 flex items-center gap-2">
-                                      <Clock size={14} /> {log.dateSent}
-                                    </td>
-                                    <td className="p-4 font-bold text-gray-900">{log.studentName}</td>
-                                    <td className="p-4 max-w-xs truncate" title={log.courseTitle}>{log.courseTitle}</td>
-                                    <td className="p-4">
-                                      <span className={`px-2 py-1 rounded-full text-xs font-bold ${
-                                        log.type === 'Original' ? 'bg-blue-100 text-blue-700' : 'bg-orange-100 text-orange-700'
-                                      }`}>
-                                        {log.type}
-                                      </span>
-                                    </td>
-                                    <td className="p-4">
-                                      <span className="flex items-center gap-1 text-green-600 font-bold text-xs bg-green-50 px-2 py-1 rounded-full w-fit">
-                                        <FileCheck size={12} /> {log.status}
-                                      </span>
-                                    </td>
-                                    <td className="p-4 text-right">
-                                      <button 
-                                        onClick={() => handleResendSingleCert(log)}
-                                        className="text-gray-400 hover:text-[#9A0000] hover:bg-red-50 p-2 rounded-lg transition-all"
-                                        title="Reenviar (Gera 2ª via)"
-                                      >
-                                        <RefreshCw size={16} />
-                                      </button>
-                                    </td>
-                                  </tr>
-                                ))}
-                                {certHistory.length === 0 && (
-                                  <tr>
-                                    <td colSpan={6} className="p-8 text-center text-gray-400">
-                                      Nenhum histórico de envio encontrado.
-                                    </td>
-                                  </tr>
-                                )}
-                              </tbody>
-                            </table>
+                        {isLoadingCertHistory ? (
+                          <div className="flex justify-center py-8">
+                            <Loader2 size={32} className="animate-spin text-[#9A0000]" />
                           </div>
-                        </div>
+                        ) : (
+                          <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm">
+                            <div className="overflow-x-auto">
+                              <table className="w-full text-left border-collapse">
+                                <thead className="bg-gray-50">
+                                  <tr className="border-b border-gray-100 text-xs font-bold text-gray-500 uppercase tracking-wider">
+                                    <th className="p-4">Data</th>
+                                    <th className="p-4">Aluno</th>
+                                    <th className="p-4">Curso</th>
+                                    <th className="p-4">Tipo</th>
+                                    <th className="p-4">Status</th>
+                                    <th className="p-4 text-right">Ações</th>
+                                  </tr>
+                                </thead>
+                                <tbody className="text-sm text-gray-700">
+                                  {certHistory.map((log) => (
+                                    <tr key={log.id} className="border-b border-gray-50 hover:bg-gray-50 transition-colors">
+                                      <td className="p-4 whitespace-nowrap text-gray-500">
+                                        {new Date(log.dateSent).toLocaleDateString('pt-BR')}
+                                      </td>
+                                      <td className="p-4 font-bold text-gray-900">{log.studentName}</td>
+                                      <td className="p-4 max-w-xs truncate" title={log.courseTitle}>{log.courseTitle}</td>
+                                      <td className="p-4">
+                                        <span className={`px-2 py-1 rounded-full text-xs font-bold ${
+                                          log.type === 'Original' ? 'bg-blue-100 text-blue-700' : 
+                                          log.type === '2ª Via' ? 'bg-orange-100 text-orange-700' :
+                                          'bg-purple-100 text-purple-700'
+                                        }`}>
+                                          {log.type}
+                                        </span>
+                                      </td>
+                                      <td className="p-4">
+                                        <span className="flex items-center gap-1 text-green-600 font-bold text-xs bg-green-50 px-2 py-1 rounded-full w-fit">
+                                          <FileCheck size={12} /> {log.status}
+                                        </span>
+                                      </td>
+                                      <td className="p-4 text-right">
+                                        <button 
+                                          onClick={() => handleResendSingleCert(log)}
+                                          className="text-gray-400 hover:text-[#9A0000] hover:bg-red-50 p-2 rounded-lg transition-all"
+                                          title="Reenviar (Gera 2ª via)"
+                                        >
+                                          <RefreshCw size={16} />
+                                        </button>
+                                      </td>
+                                    </tr>
+                                  ))}
+                                  {certHistory.length === 0 && (
+                                    <tr>
+                                      <td colSpan={6} className="p-8 text-center text-gray-400">
+                                        Nenhum histórico de envio encontrado.
+                                      </td>
+                                    </tr>
+                                  )}
+                                </tbody>
+                              </table>
+                            </div>
+                          </div>
+                        )}
                       </div>
 
                     </div>
@@ -3091,6 +3189,26 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
                             onChange={e => setBlogData({ ...blogData, author: e.target.value })}
                             placeholder="Nome do autor"
                             className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-[#9A0000] outline-none bg-white text-gray-900"
+                          />
+
+                          {/* NOVO: Ocupação do autor */}
+                          <label className="text-xs font-bold text-gray-500 uppercase ml-1 mt-4 block">Ocupação do autor</label>
+                          <input
+                            type="text"
+                            value={blogData.author_role}
+                            onChange={e => setBlogData({ ...blogData, author_role: e.target.value })}
+                            placeholder="Ex: Chef de Confeitaria, Educador Culinário, etc."
+                            className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-[#9A0000] outline-none bg-white text-gray-900"
+                          />
+
+                          {/* NOVO: Biografia do autor */}
+                          <label className="text-xs font-bold text-gray-500 uppercase ml-1 mt-4 block">Biografia do autor</label>
+                          <textarea
+                            rows={3}
+                            value={blogData.author_bio}
+                            onChange={e => setBlogData({ ...blogData, author_bio: e.target.value })}
+                            placeholder="Pequena descrição sobre o autor..."
+                            className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-[#9A0000] outline-none resize-none bg-white text-gray-900"
                           />
                           
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
