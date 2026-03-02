@@ -1,14 +1,18 @@
-export const DEFAULT_BLOG_IMAGE = '/assets/default-blog.jpg'; // ajuste o caminho conforme seu projeto
 import React from 'react';
 import { Course, Category, Testimonial, BlogPost, Instructor } from './types';
 import { COURSE_DATA } from './courseData';
 
+// ========== CONSTANTES GLOBAIS ==========
 export const COLORS = {
   blue: '#9A0000',
   red: '#d20000',
   green: '#9d0b48',
   yellow: '#fff304',
 };
+
+export const DEFAULT_COURSE_IMAGE = 'https://omnuydikeejhiahkufwa.supabase.co/storage/v1/object/public/course-images/PADRAO.webp';
+export const DEFAULT_TEACHER_IMAGE = 'https://omnuydikeejhiahkufwa.supabase.co/storage/v1/object/public/course-images/PROFESSOR.webp';
+export const DEFAULT_BLOG_IMAGE = 'https://via.placeholder.com/600x400?text=Blog+Sonho+da+Festa';
 
 export const INSTRUCTORS: Instructor[] = [
   {
@@ -287,7 +291,3 @@ export const BLOG_POSTS: BlogPost[] = [
     readTime: '5 min'
   }
 ];
-
-// ========== NOVA CONSTANTE ADICIONADA ==========
-export const DEFAULT_COURSE_IMAGE = 'https://omnuydikeejhiahkufwa.supabase.co/storage/v1/object/public/course-images/PADRAO.webp';
-export const DEFAULT_TEACHER_IMAGE = 'https://omnuydikeejhiahkufwa.supabase.co/storage/v1/object/public/course-images/PROFESSOR.webp';

@@ -11,6 +11,7 @@ import AIAssistant from './components/AIAssistant';
 import PrivacyPolicy from './components/PrivacyPolicy';
 import CookiePolicy from './components/CookiePolicy';
 import Blog from './components/Blog';
+import PostDetails from './components/PostDetails'; // <-- novo componente
 import TeacherApplication from './components/TeacherApplication';
 import Contact from './components/Contact';
 import UserDashboard from './components/UserDashboard';
@@ -19,7 +20,7 @@ import CheckoutPage from './components/CheckoutPage';
 import SeatSelector from './components/SeatSelector';
 import AdminDashboard from './components/AdminDashboard';
 import Units from './components/Units';
-import Teachers from './components/Teachers'; // <-- import da página de professores
+import Teachers from './components/Teachers';
 import Modal from './components/Modal';
 import { Course, BlogPost, CartItem, CartHistoryEvent } from './types';
 import { CATEGORIES, COURSES, TESTIMONIALS, BLOG_POSTS, DEFAULT_COURSE_IMAGE } from './constants';
@@ -36,8 +37,9 @@ const logoUrl = '/assets/logo.webp';
 
 const App: React.FC = () => {
   const [activeCategory, setActiveCategory] = useState('Todos');
-  const [currentView, setCurrentView] = useState<'home' | 'details' | 'presencial' | 'catalog' | 'privacy' | 'cookies' | 'blog' | 'teacher-application' | 'contact' | 'profile' | 'checkout' | 'admin' | 'units' | 'teachers'>('home');
+  const [currentView, setCurrentView] = useState<'home' | 'details' | 'presencial' | 'catalog' | 'privacy' | 'cookies' | 'blog' | 'post' | 'teacher-application' | 'contact' | 'profile' | 'checkout' | 'admin' | 'units' | 'teachers'>('home');
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
+  const [selectedPost, setSelectedPost] = useState<BlogPost | null>(null); // <-- estado para post selecionado
 
   const [courses, setCourses] = useState<Course[]>([]);
   const coursesRef = useRef<Course[]>([]);
@@ -327,6 +329,12 @@ const App: React.FC = () => {
     window.scrollTo(0, 0);
   };
 
+  const handlePostClick = (post: BlogPost) => { // <-- nova função
+    setSelectedPost(post);
+    setCurrentView('post');
+    window.scrollTo(0, 0);
+  };
+
   const handleToggleFavorite = async (course: Course) => {
     if (!user) {
       setModal({ isOpen: true, type: 'warning', message: 'Por favor, faça login ou cadastre-se para favoritar cursos.' });
@@ -395,43 +403,56 @@ const App: React.FC = () => {
     if (page === 'home') {
       setCurrentView('home');
       setSelectedCourse(null);
+      setSelectedPost(null);
     } else if (page === 'presencial') {
       setCurrentView('presencial');
       setSelectedCourse(null);
+      setSelectedPost(null);
     } else if (page === 'catalog') {
       setCurrentView('catalog');
       setSelectedCourse(null);
+      setSelectedPost(null);
     } else if (page === 'privacy') {
       setCurrentView('privacy');
       setSelectedCourse(null);
+      setSelectedPost(null);
     } else if (page === 'cookies') {
       setCurrentView('cookies');
       setSelectedCourse(null);
+      setSelectedPost(null);
     } else if (page === 'blog') {
       setCurrentView('blog');
       setSelectedCourse(null);
+      setSelectedPost(null);
     } else if (page === 'teacher-application') {
       setCurrentView('teacher-application');
       setSelectedCourse(null);
+      setSelectedPost(null);
     } else if (page === 'contact') {
       setCurrentView('contact');
       setSelectedCourse(null);
+      setSelectedPost(null);
     } else if (page === 'profile') {
       setCurrentView('profile');
       setSelectedCourse(null);
+      setSelectedPost(null);
     } else if (page === 'checkout') {
       setCurrentView('checkout');
       setSelectedCourse(null);
+      setSelectedPost(null);
       setIsCartOpen(false);
     } else if (page === 'admin') {
       setCurrentView('admin');
       setSelectedCourse(null);
+      setSelectedPost(null);
     } else if (page === 'units') {
       setCurrentView('units');
       setSelectedCourse(null);
+      setSelectedPost(null);
     } else if (page === 'teachers') {
       setCurrentView('teachers');
       setSelectedCourse(null);
+      setSelectedPost(null);
     }
     window.scrollTo(0, 0);
   };
@@ -657,6 +678,13 @@ const App: React.FC = () => {
             onAddToCart={initiateCoursePurchase}
           />
         ) : null;
+      case 'post': // <-- nova view
+        return selectedPost ? (
+          <PostDetails
+            post={selectedPost}
+            onBack={() => handleNavigate('blog')}
+          />
+        ) : null;
       case 'presencial':
         return <PresencialCourses onBack={() => handleNavigate('home')} onCourseClick={initiateCoursePurchase} />;
       case 'catalog':
@@ -671,7 +699,7 @@ const App: React.FC = () => {
           />
         );
       case 'blog':
-        return <Blog onBack={() => handleNavigate('home')} posts={blogPosts} />;
+        return <Blog onBack={() => handleNavigate('home')} onPostClick={handlePostClick} />;
       case 'teacher-application':
         return <TeacherApplication onBack={() => handleNavigate('home')} />;
       case 'contact':
@@ -760,18 +788,14 @@ const App: React.FC = () => {
                 </div>
 
                 <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 md:gap-8">
-                  {filteredCourses.slice(0, 6).map(course => {
-                    console.log('Curso:', course.title, 'image_url:', course.image_url);
-                    return (
-                      <CourseCard 
-                        key={course.id} 
-                        course={course} 
-                        onClick={handleCourseClick}
-                        isFavorite={favorites.includes(course.id)}
-                        onToggleFavorite={handleToggleFavorite}
-                      />
-                    );
-                  })}
+                  {filteredCourses.slice(0, 6).map(course => (
+                    <CourseCard 
+                      key={course.id} 
+                      course={course} 
+                      onClick={handleCourseClick}
+                      isFavorite={favorites.includes(course.id)}
+                      onToggleFavorite={handleToggleFavorite}
+                    />
                   ))}
                 </div>
               </div>
@@ -953,9 +977,10 @@ const App: React.FC = () => {
         {renderContent()}
 
         {currentView !== 'details' && currentView !== 'catalog' && currentView !== 'privacy' && 
-         currentView !== 'cookies' && currentView !== 'blog' && currentView !== 'teacher-application' && 
-         currentView !== 'contact' && currentView !== 'profile' && currentView !== 'checkout' && 
-         currentView !== 'admin' && currentView !== 'units' && currentView !== 'teachers' && (
+         currentView !== 'cookies' && currentView !== 'blog' && currentView !== 'post' &&
+         currentView !== 'teacher-application' && currentView !== 'contact' && 
+         currentView !== 'profile' && currentView !== 'checkout' && currentView !== 'admin' && 
+         currentView !== 'units' && currentView !== 'teachers' && (
           <section className="py-20 bg-white border-t border-gray-100 relative overflow-hidden">
              <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-[#9A0000] via-[#d20000] to-[#fff304]"></div>
              <div className="max-w-4xl mx-auto px-4 relative z-10">

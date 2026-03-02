@@ -32,13 +32,36 @@ const Catalog: React.FC<CatalogProps> = ({
     setActiveCategory(initialCategory);
   }, [initialCategory]);
 
-  const filteredCourses = courses.filter(course => {
-    const matchesCategory = activeCategory === 'Todos' || course.category === activeCategory;
-    const matchesSearch = course.title.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                          course.instructor.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesInstructor = instructorFilter ? course.instructor === instructorFilter : true;
-    return matchesCategory && matchesSearch && matchesInstructor;
-  });
+  // Nova lógica de filtro priorizando professor
+  const filteredCourses = React.useMemo(() => {
+    let result = courses;
+
+    // 1. Filtrar por professor (se houver)
+    if (instructorFilter) {
+      result = result.filter(c => c.instructor === instructorFilter);
+      // Quando filtrando por professor, ignora a categoria
+      return searchTerm
+        ? result.filter(c =>
+            c.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            c.instructor.toLowerCase().includes(searchTerm.toLowerCase())
+          )
+        : result;
+    }
+
+    // 2. Se não há filtro de professor, aplica os outros filtros
+    if (activeCategory !== 'Todos') {
+      result = result.filter(c => c.category === activeCategory);
+    }
+
+    if (searchTerm) {
+      result = result.filter(c =>
+        c.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        c.instructor.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+    }
+
+    return result;
+  }, [courses, instructorFilter, activeCategory, searchTerm]);
 
   return (
     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 min-h-screen bg-[#fcfaf8] pb-20">
@@ -132,10 +155,21 @@ const Catalog: React.FC<CatalogProps> = ({
         </div>
 
         {instructorFilter && (
-          <div className="mb-4 p-3 bg-[#fff304]/10 rounded-lg border border-[#fff304]/20">
-            <p className="text-sm text-gray-700">
-              Filtrando cursos do professor: <strong className="text-[#9A0000]">{instructorFilter}</strong>
-            </p>
+          <div className="bg-blue-50 p-4 rounded-lg mb-6 flex items-center justify-between">
+            <div>
+              <p className="text-sm text-blue-800">
+                Mostrando cursos de: <strong>{instructorFilter}</strong>
+              </p>
+              <p className="text-xs text-blue-600 mt-1">
+                (filtro de categoria desativado enquanto um professor específico é selecionado)
+              </p>
+            </div>
+            <button
+              onClick={onClearInstructorFilter}
+              className="text-sm bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              Mostrar todos os cursos
+            </button>
           </div>
         )}
 

@@ -1,6 +1,6 @@
 // ==================== IMPORTS (NO TOPO) ====================
 import React, { useState, useEffect, useCallback } from 'react';
-import { DEFAULT_COURSE_IMAGE, DEFAULT_TEACHER_IMAGE } from '../constants';
+import { DEFAULT_COURSE_IMAGE, DEFAULT_TEACHER_IMAGE, DEFAULT_BLOG_IMAGE } from '../constants';
 import { 
   ArrowLeft, Plus, BookOpen, GraduationCap, Save, X, CheckCircle2, 
   Image as ImageIcon, Layout, FileText, DollarSign, Calendar, User, 
@@ -382,6 +382,53 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
         message: 'Erro ao fazer upload da imagem. O curso será salvo sem imagem.'
       });
       setCourseData(prev => ({ ...prev, image_url: '' }));
+    }
+  };
+
+  const handleBlogImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    console.log('📤 Iniciando upload de imagem do blog:', file.name);
+
+    // Preview local (temporário)
+    const localUrl = URL.createObjectURL(file);
+    setUploadedImage(localUrl);
+
+    const extension = file.name.split('.').pop();
+    const fileName = `blog-${Date.now()}.${extension}`;
+
+    try {
+      // Upload para o bucket blog-images
+      const { error: uploadError } = await supabase.storage
+        .from('blog-images')
+        .upload(fileName, file, {
+          cacheControl: '3600',
+          upsert: false
+        });
+
+      if (uploadError) throw uploadError;
+
+      console.log('✅ Upload concluído, obtendo URL pública...');
+
+      const { data: publicUrlData } = supabase.storage
+        .from('blog-images')
+        .getPublicUrl(fileName);
+
+      if (publicUrlData?.publicUrl) {
+        console.log('🔗 URL pública gerada:', publicUrlData.publicUrl);
+        setUploadedImage(publicUrlData.publicUrl);
+      } else {
+        throw new Error('Não foi possível obter a URL pública');
+      }
+    } catch (error) {
+      console.error('❌ Erro no upload:', error);
+      setModal({
+        isOpen: true,
+        type: 'error',
+        message: `Erro ao fazer upload: ${error.message || 'Erro desconhecido'}`
+      });
+      setUploadedImage(null);
     }
   };
 
@@ -3028,7 +3075,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onAddCourse, on
                         <div className="space-y-4">
                           <label className="text-xs font-bold text-gray-500 uppercase ml-1">Imagem de Capa</label>
                           <div className="relative">
-                             <input type="file" onChange={handleImageUpload} className="absolute inset-0 opacity-0 cursor-pointer" />
+                             <input type="file" accept="image/*" onChange={handleBlogImageUpload} className="absolute inset-0 opacity-0 cursor-pointer z-10" />
                              <div className="w-full h-32 rounded-xl border border-dashed border-gray-300 flex items-center justify-center text-gray-500 hover:border-[#9A0000] bg-white">
                                {uploadedImage ? <img src={uploadedImage} alt="Preview" className="h-full object-contain" /> : "Clique para adicionar capa"}
                              </div>

@@ -10,6 +10,7 @@ import AIAssistant from './components/AIAssistant';
 import PrivacyPolicy from './components/PrivacyPolicy';
 import CookiePolicy from './components/CookiePolicy';
 import Blog from './components/Blog';
+import PostDetails from './components/PostDetails';
 import TeacherApplication from './components/TeacherApplication';
 import Contact from './components/Contact';
 import UserDashboard from './components/UserDashboard';
@@ -36,9 +37,17 @@ const logoUrl = '/assets/logo.webp';
 
 const App: React.FC = () => {
   const [activeCategory, setActiveCategory] = useState('Todos');
-  const [currentView, setCurrentView] = useState<'home' | 'details' | 'presencial' | 'catalog' | 'privacy' | 'cookies' | 'blog' | 'teacher-application' | 'contact' | 'profile' | 'checkout' | 'admin' | 'units' | 'teachers'>('home');
+  const [currentView, setCurrentView] = useState<'home' | 'details' | 'presencial' | 'catalog' | 'privacy' | 'cookies' | 'blog' | 'post' | 'teacher-application' | 'contact' | 'profile' | 'checkout' | 'admin' | 'units' | 'teachers'>('home');
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
+  const [selectedPost, setSelectedPost] = useState<BlogPost | null>(null);
   const [instructorFilter, setInstructorFilter] = useState<string | null>(null);
+
+  // Função para limpar o filtro de professor
+  const handleClearInstructorFilter = () => {
+    setInstructorFilter(null);
+    // Se quiser resetar categoria ao limpar professor, descomente:
+    // setActiveCategory('Todos');
+  };
 
   const [courses, setCourses] = useState<Course[]>([]);
   const coursesRef = useRef<Course[]>([]);
@@ -366,6 +375,12 @@ const App: React.FC = () => {
   const handleCourseClick = (course: Course) => {
     setSelectedCourse(course);
     setCurrentView('details');
+    window.scrollTo(0, 0);
+  };
+
+  const handlePostClick = (post: BlogPost) => {
+    setSelectedPost(post);
+    setCurrentView('post');
     window.scrollTo(0, 0);
   };
 
@@ -711,11 +726,21 @@ const App: React.FC = () => {
             favorites={favorites}
             onToggleFavorite={handleToggleFavorite}
             instructorFilter={instructorFilter}
-            onClearInstructorFilter={() => setInstructorFilter(null)}
+            onClearInstructorFilter={handleClearInstructorFilter}
           />
         );
       case 'blog':
-        return <Blog onBack={() => handleNavigate('home')} posts={blogPosts} />;
+        return <Blog onBack={() => handleNavigate('home')} onPostClick={handlePostClick} />;
+      case 'post':
+        return selectedPost ? (
+          <PostDetails 
+            post={selectedPost} 
+            onBack={() => {
+              setSelectedPost(null);
+              setCurrentView('blog');
+            }}
+          />
+        ) : null;
       case 'teacher-application':
         return <TeacherApplication onBack={() => handleNavigate('home')} />;
       case 'contact':
